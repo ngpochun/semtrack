@@ -1,0 +1,12 @@
+# Agent/runtime internals
+.box-agent/
+.box-agent-scratch/
+.playwright-mcp/
+
+# OS noise
+.DS_Store
+
+# Node (future app)
+node_modules/
+.env
+.env.*

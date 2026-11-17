@@ -1,0 +1,1413 @@
+<style>
+/* Raccoon conversation primitives. Published with each immutable fragment. */
+[hidden] {
+  display: none !important;
+}
+.rv-variants {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+.rv-variants :is(button, select) {
+  font: inherit;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-width: 100%;
+  cursor: pointer;
+}
+.rv-variants button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.rv-schedule {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rv-schedule li {
+  display: grid;
+  grid-template-columns: minmax(85px, auto) 1fr;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rv-schedule time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+.viz {
+  color: var(--foreground);
+  font:
+    400 14px/1.5 system-ui,
+    sans-serif;
+  padding: 8px 0;
+}
+.viz :is(h1, h2, h3, p) {
+  margin: 0;
+}
+.viz :is(h1, h2, h3, strong) {
+  font-size: inherit;
+  font-weight: 500;
+}
+.viz-stack {
+  display: grid;
+  gap: 20px;
+}
+.viz-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.viz-controls,
+.viz-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 24px;
+}
+.viz-field {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.viz-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+.viz-muted {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.viz-number {
+  font-variant-numeric: tabular-nums;
+}
+.viz-metric {
+  display: grid;
+  gap: 6px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.viz-value {
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.viz-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.viz-button:is(:hover, [aria-pressed='true']) {
+  background: var(--muted);
+}
+.viz-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.viz-input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--foreground);
+  background: var(--background);
+  font: inherit;
+}
+.viz-range {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--foreground);
+}
+/* Optional motion composition. Existing calculators and dashboards keep their layout. */
+.viz.viz-motion {
+  display: grid;
+  gap: 14px;
+  padding: 0;
+}
+.viz-motion .viz-title {
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+.viz-motion .viz-scene {
+  min-width: 0;
+  max-width: 100%;
+}
+.viz-motion .viz-caption {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.viz-motion .viz-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  min-width: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.viz-motion .viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.viz-motion .viz-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.viz-motion .viz-controls > .viz-field {
+  flex: 0 1 280px;
+  gap: 6px;
+}
+.viz-motion .viz-note {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.viz :focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.viz-table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+.viz-table :is(th, td) {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+}
+.viz-table th {
+  color: var(--muted-foreground);
+}
+.viz-table .viz-number {
+  text-align: right;
+}
+@media (prefers-reduced-motion: reduce) {
+  .viz * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+</style>
+<script>
+/* Raccoon Work visualization helpers. No network, native access, or model invocation. */
+(() => {
+  const host = window.RaccoonHost;
+  const groups = new Map();
+  const listeners = new Set();
+  const languageListeners = new Set();
+  const snapshot = host?.snapshot || { data: null, design: {} };
+  let language = host?.language || document.documentElement.lang || 'zh';
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const labels = {
+    zh: { previous: '上一个方案', next: '下一个方案', variant: '设计方案' },
+    en: { previous: 'Previous design', next: 'Next design', variant: 'Design option' },
+    ja: { previous: '前のデザイン', next: '次のデザイン', variant: 'デザイン案' },
+  };
+  const text = () => labels[language.split('-')[0]] || labels.en;
+  const publish = () => {
+    const serialized = JSON.stringify(snapshot);
+    if (new TextEncoder().encode(serialized).length > 16384)
+      throw new RangeError('Visualization state exceeds 16 KiB');
+    host?.send({ type: 'snapshot', snapshot: JSON.parse(serialized) });
+  };
+  const valid = (field, value) => {
+    if (field.kind === 'range')
+      return (
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value >= field.min &&
+        value <= field.max
+      );
+    if (field.kind === 'toggle') return typeof value === 'boolean';
+    if (field.kind === 'color') return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+    return field.kind === 'select' && field.options.includes(value);
+  };
+  const descriptors = () =>
+    [...groups.values()].flatMap(group =>
+      group.fields.map(field => ({
+        ...field,
+        id: `${group.id}/${field.key}`,
+        label: `${group.label} · ${field.label}`,
+        value: group.values[field.key],
+        initial: group.initial[field.key],
+      })),
+    );
+  const register = () => host?.send({ type: 'design-register', fields: descriptors() });
+  host?.subscribe(message => {
+    if (message.language) {
+      language = message.language;
+      languageListeners.forEach(fn => fn(language));
+    }
+    if (message.type !== 'design-change') return;
+    for (const group of groups.values()) {
+      const field = group.fields.find(item => `${group.id}/${item.key}` === message.id);
+      if (!field || !valid(field, message.value)) continue;
+      group.values[field.key] = message.value;
+      snapshot.design[message.id] = message.value;
+      group.onChange({ ...group.values });
+      publish();
+      register();
+      break;
+    }
+  });
+  window.RaccoonViz = {
+    get language() {
+      return language;
+    },
+    get state() {
+      return clone(snapshot.data);
+    },
+    saveState(data) {
+      const next = clone(data);
+      if (new TextEncoder().encode(JSON.stringify({ ...snapshot, data: next })).length > 16384)
+        throw new RangeError('Visualization state exceeds 16 KiB');
+      snapshot.data = next;
+      publish();
+      listeners.forEach(fn => fn(clone(next)));
+    },
+    onState(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    onLanguage(fn) {
+      languageListeners.add(fn);
+      return () => languageListeners.delete(fn);
+    },
+    linearCosts(a, b, quantity) {
+      if (![a.fixed, a.rate, b.fixed, b.rate, quantity].every(Number.isFinite))
+        throw new TypeError('Linear costs require finite fixed costs, rates and quantity');
+      const costA = a.fixed + a.rate * quantity,
+        costB = b.fixed + b.rate * quantity;
+      const difference = costA - costB;
+      const equal =
+        Math.abs(difference) <= Number.EPSILON * Math.max(1, Math.abs(costA), Math.abs(costB)) * 4;
+      const crossing = a.rate === b.rate ? null : (b.fixed - a.fixed) / (a.rate - b.rate);
+      const atCrossing =
+        crossing !== null &&
+        Math.abs(crossing - quantity) <=
+          Number.EPSILON * Math.max(1, Math.abs(crossing), Math.abs(quantity)) * 4;
+      return {
+        costA,
+        costB,
+        difference: equal ? 0 : difference,
+        savings: equal ? 0 : Math.abs(difference),
+        winner: equal ? 'tie' : difference < 0 ? 'A' : 'B',
+        crossing,
+        side:
+          crossing === null ? null : atCrossing ? 'at' : quantity < crossing ? 'before' : 'after',
+        distance: crossing === null ? null : atCrossing ? 0 : Math.abs(crossing - quantity),
+      };
+    },
+    polyline(points, { closed = false } = {}) {
+      if (
+        !Array.isArray(points) ||
+        points.length < 2 ||
+        !Array.from(points).every(
+          point =>
+            Array.isArray(point) &&
+            point.length === 2 &&
+            Number.isFinite(point[0]) &&
+            Number.isFinite(point[1]),
+        )
+      )
+        throw new TypeError('Polyline requires at least two finite [x, y] points');
+      const path = points.map(point => [...point]);
+      const first = path[0],
+        last = path[path.length - 1];
+      if (closed && (first[0] !== last[0] || first[1] !== last[1])) path.push([...first]);
+      const distances = [0];
+      for (let index = 1; index < path.length; index++) {
+        const previous = path[index - 1],
+          current = path[index];
+        distances.push(
+          distances[index - 1] + Math.hypot(current[0] - previous[0], current[1] - previous[1]),
+        );
+      }
+      const length = distances[distances.length - 1];
+      if (!Number.isFinite(length)) throw new RangeError('Polyline length must be finite');
+      path.forEach(Object.freeze);
+      Object.freeze(path);
+      return {
+        points: path,
+        length,
+        distanceAt(index) {
+          if (!Number.isInteger(index) || index < 0 || index >= path.length)
+            throw new RangeError('Polyline vertex index is out of range');
+          return distances[index];
+        },
+        pointAt(distance) {
+          if (!Number.isFinite(distance)) throw new TypeError('Polyline distance must be finite');
+          if (!length) return { x: first[0], y: first[1], angle: 0 };
+          const offset = closed ? distance % length : Math.max(0, Math.min(length, distance));
+          const position = offset < 0 ? offset + length : offset;
+          for (let index = 1; index < path.length; index++) {
+            const segment = distances[index] - distances[index - 1];
+            if (!segment || position > distances[index]) continue;
+            const a = path[index - 1],
+              b = path[index];
+            const fraction = (position - distances[index - 1]) / segment;
+            return {
+              x: a[0] + (b[0] - a[0]) * fraction,
+              y: a[1] + (b[1] - a[1]) * fraction,
+              angle: Math.atan2(b[1] - a[1], b[0] - a[0]),
+            };
+          }
+        },
+      };
+    },
+    fitBounds(width, height, bounds, padding = 16) {
+      const { minX, minY, maxX, maxY } = bounds;
+      if (
+        ![width, height, minX, minY, maxX, maxY, padding].every(Number.isFinite) ||
+        width <= 0 ||
+        height <= 0 ||
+        padding < 0 ||
+        maxX < minX ||
+        maxY < minY
+      )
+        throw new RangeError(
+          'Fit bounds require finite, ordered bounds and positive viewport dimensions',
+        );
+      const inset = Math.min(padding, width * 0.45, height * 0.45);
+      const spanX = maxX - minX,
+        spanY = maxY - minY;
+      const fit = Math.min(
+        spanX ? (width - 2 * inset) / spanX : Infinity,
+        spanY ? (height - 2 * inset) / spanY : Infinity,
+      );
+      const scale = Number.isFinite(fit) ? fit : 1;
+      const x = width / 2 - (minX + spanX / 2) * scale;
+      const y = height / 2 - (minY + spanY / 2) * scale;
+      return { scale, x, y, project: (px, py) => ({ x: x + px * scale, y: y + py * scale }) };
+    },
+    bind(root, update) {
+      const currentControls = () => [
+        ...root.querySelectorAll('input[name], select[name], textarea[name]'),
+      ];
+      const initial = new WeakMap(
+        currentControls().map(control => [
+          control,
+          {
+            value: control.value,
+            checked: control.checked,
+          },
+        ]),
+      );
+      const render = event => {
+        // Editors may be mounted after binding or removed when changing modules.
+        const controls = currentControls();
+        const source = event?.target;
+        const numeric = control => ['number', 'range'].includes(control.type);
+        const sourceIsNumeric = controls.includes(source) && numeric(source);
+        if (sourceIsNumeric) {
+          if (!source.validity.valid || !Number.isFinite(source.valueAsNumber)) return;
+          controls.forEach(control => {
+            if (control !== source && control.name === source.name && numeric(control))
+              control.value = source.value;
+          });
+        }
+        const values = Object.create(null);
+        for (const control of controls) {
+          if (control.type === 'radio' && !control.checked) continue;
+          if (sourceIsNumeric && numeric(control) && control.name === source.name) continue;
+          if (!control.validity.valid) return;
+          const value =
+            control.type === 'checkbox'
+              ? control.checked
+              : ['number', 'range'].includes(control.type)
+                ? control.valueAsNumber
+                : control.value;
+          if (typeof value === 'number' && !Number.isFinite(value)) return;
+          values[control.name] = value;
+        }
+        // A range may round to a coarser step; retain the actively edited number.
+        if (sourceIsNumeric) values[source.name] = source.valueAsNumber;
+        update(values);
+      };
+      root.addEventListener('input', render);
+      render();
+      return {
+        render,
+        reset() {
+          currentControls().forEach(control => {
+            const saved = initial.get(control);
+            if (saved) {
+              control.value = saved.value;
+              control.checked = saved.checked;
+            } else if (control.tagName === 'SELECT') {
+              const options = [...control.options];
+              const defaults = options.filter(option => option.defaultSelected);
+              if (control.multiple)
+                options.forEach(option => {
+                  option.selected = option.defaultSelected;
+                });
+              else control.selectedIndex = options.indexOf(defaults.at(-1) || options[0]);
+            } else {
+              control.value = control.defaultValue;
+              control.checked = control.defaultChecked;
+            }
+          });
+          render();
+        },
+        dispose() {
+          root.removeEventListener('input', render);
+        },
+      };
+    },
+    canvas(root, { label, height = 280, aspectRatio, draw }) {
+      if (
+        typeof label !== 'string' ||
+        !label.trim() ||
+        typeof draw !== 'function' ||
+        !Number.isFinite(height) ||
+        height <= 0 ||
+        (aspectRatio !== undefined && (!Number.isFinite(aspectRatio) || aspectRatio <= 0))
+      )
+        throw new Error('Canvas needs a label, draw callback and positive height and aspect ratio');
+      const canvas = document.createElement('canvas');
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', label);
+      // Drawing-buffer pixels must never contribute to the element's CSS height.
+      canvas.style.cssText = `display:block;width:100%;height:${height}px`;
+      root.append(canvas);
+      const ctx = canvas.getContext('2d');
+      const probes = Object.fromEntries(
+        ['background', 'foreground', 'muted', 'muted-foreground', 'border', 'primary'].map(key => {
+          const probe = document.createElement('span');
+          probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;color:var(--${key})`;
+          root.append(probe);
+          return [key, probe];
+        }),
+      );
+      let colors,
+        width = 0,
+        surfaceHeight = height,
+        ratio = 1,
+        elapsed = 0,
+        last,
+        frame,
+        playing = false,
+        disposed = false;
+      const readColors = () => {
+        colors = Object.fromEntries(
+          Object.entries(probes).map(([key, probe]) => [key, getComputedStyle(probe).color]),
+        );
+      };
+      const paint = (delta = 0) => {
+        if (disposed || !width) return;
+        ctx.save();
+        try {
+          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+          ctx.clearRect(0, 0, width, surfaceHeight);
+          draw({ ctx, width, height: surfaceHeight, time: elapsed, delta, colors });
+        } finally {
+          ctx.restore();
+        }
+      };
+      const resize = () => {
+        const nextWidth = root.getBoundingClientRect().width;
+        if (!nextWidth) return;
+        const nextRatio = Math.min(window.devicePixelRatio || 1, 2);
+        const nextHeight =
+          aspectRatio === undefined ? height : Math.min(height, nextWidth / aspectRatio);
+        if (nextWidth !== width || nextRatio !== ratio || nextHeight !== surfaceHeight) {
+          width = nextWidth;
+          ratio = nextRatio;
+          surfaceHeight = nextHeight;
+          canvas.style.height = `${surfaceHeight}px`;
+          canvas.width = Math.round(width * ratio);
+          canvas.height = Math.round(surfaceHeight * ratio);
+        }
+        paint();
+      };
+      const tick = now => {
+        frame = undefined;
+        if (!playing || disposed) return;
+        const delta = last === undefined ? 0 : Math.max(0, Math.min((now - last) / 1000, 0.1));
+        last = last === undefined ? now : Math.max(last, now);
+        elapsed += delta;
+        paint(delta);
+        if (playing && !disposed) frame = requestAnimationFrame(tick);
+      };
+      const pause = () => {
+        playing = false;
+        cancelAnimationFrame(frame);
+        frame = undefined;
+        last = undefined;
+      };
+      const render = () => {
+        if (!disposed) {
+          readColors();
+          paint();
+        }
+      };
+      const visibility = () => {
+        last = undefined;
+      };
+      const observer = new ResizeObserver(resize);
+      const theme = new MutationObserver(render);
+      const scheme = matchMedia('(prefers-color-scheme: dark)');
+      const dispose = () => {
+        if (disposed) return;
+        pause();
+        disposed = true;
+        observer.disconnect();
+        theme.disconnect();
+        removeEventListener('resize', resize);
+        removeEventListener('pagehide', dispose);
+        document.removeEventListener('visibilitychange', visibility);
+        scheme.removeEventListener('change', render);
+        Object.values(probes).forEach(probe => probe.remove());
+        canvas.remove();
+      };
+      readColors();
+      resize();
+      observer.observe(root);
+      theme.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      });
+      addEventListener('resize', resize);
+      addEventListener('pagehide', dispose, { once: true });
+      document.addEventListener('visibilitychange', visibility);
+      scheme.addEventListener('change', render);
+      return {
+        element: canvas,
+        get time() {
+          return elapsed;
+        },
+        play() {
+          if (!playing && !disposed) {
+            playing = true;
+            last = performance.now();
+            frame = requestAnimationFrame(tick);
+          }
+        },
+        pause,
+        reset() {
+          pause();
+          elapsed = 0;
+          render();
+        },
+        render,
+        dispose,
+      };
+    },
+    design({ id, label, values, fields, onChange }) {
+      if (
+        !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,31}$/.test(id) ||
+        groups.has(id) ||
+        typeof label !== 'string' ||
+        !label.length ||
+        label.length > 40 ||
+        typeof onChange !== 'function' ||
+        !Array.isArray(fields) ||
+        descriptors().length + fields.length > 12
+      )
+        throw new Error('Invalid design group');
+      const initial = { ...values },
+        current = { ...values };
+      const keys = new Set();
+      for (const field of fields) {
+        if (
+          !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,31}$/.test(field.key) ||
+          keys.has(field.key) ||
+          typeof field.label !== 'string' ||
+          !field.label.length ||
+          field.label.length > 50
+        )
+          throw new Error('Invalid design field');
+        keys.add(field.key);
+        if (
+          field.kind === 'range' &&
+          (![field.min, field.max, field.step].every(Number.isFinite) ||
+            field.min >= field.max ||
+            field.step <= 0 ||
+            field.step > field.max - field.min)
+        )
+          throw new Error('Invalid range');
+        if (
+          field.kind === 'select' &&
+          (!Array.isArray(field.options) ||
+            !field.options.length ||
+            field.options.length > 12 ||
+            new Set(field.options).size !== field.options.length ||
+            field.options.some(
+              option => typeof option !== 'string' || !option || option.length > 100,
+            ))
+        )
+          throw new Error('Invalid choices');
+        if (!valid(field, initial[field.key])) throw new Error('Invalid initial design value');
+        const saved = snapshot.design[`${id}/${field.key}`];
+        if (valid(field, saved)) current[field.key] = saved;
+      }
+      const group = { id, label, fields, values: current, initial, onChange };
+      groups.set(id, group);
+      onChange({ ...current });
+      register();
+      return () => {
+        groups.delete(id);
+        register();
+      };
+    },
+    variants(root, { selected, onChange = () => {} } = {}) {
+      const views = [...root.children].filter(el => el.hasAttribute('data-raccoon-variant'));
+      if (!views.length) return () => {};
+      const names = views.map(el => el.getAttribute('data-raccoon-variant'));
+      if (names.some(name => !name) || new Set(names).size !== names.length)
+        throw new Error('Variant names must be non-empty and unique');
+      let index = Math.max(0, names.indexOf(selected));
+      const nav = document.createElement('nav');
+      nav.className = 'rv-variants';
+      const previous = document.createElement('button'),
+        next = document.createElement('button');
+      const picker = document.createElement('select');
+      previous.type = next.type = 'button';
+      previous.textContent = '‹';
+      next.textContent = '›';
+      names.forEach(name => {
+        const option = document.createElement('option');
+        option.textContent = option.value = name;
+        picker.append(option);
+      });
+      const render = () => {
+        views.forEach((el, i) => {
+          el.hidden = i !== index;
+        });
+        picker.value = names[index];
+        previous.disabled = index === 0;
+        next.disabled = index === names.length - 1;
+      };
+      const choose = i => {
+        index = i;
+        render();
+        onChange(names[index]);
+      };
+      previous.onclick = () => choose(Math.max(0, index - 1));
+      next.onclick = () => choose(Math.min(names.length - 1, index + 1));
+      picker.onchange = () => choose(names.indexOf(picker.value));
+      const translate = () => {
+        nav.setAttribute('aria-label', text().variant);
+        picker.setAttribute('aria-label', text().variant);
+        previous.setAttribute('aria-label', text().previous);
+        next.setAttribute('aria-label', text().next);
+      };
+      translate();
+      render();
+      languageListeners.add(translate);
+      nav.append(previous, picker, next);
+      root.append(nav);
+      return () => {
+        languageListeners.delete(translate);
+        nav.remove();
+      };
+    },
+    tabs(root) {
+      const tabs = [...root.querySelectorAll('[role="tab"]')];
+      const enabled = tab => !tab.disabled && tab.getAttribute('aria-disabled') !== 'true';
+      const group = tab =>
+        tabs.filter(item => item.closest('[role="tablist"]') === tab.closest('[role="tablist"]'));
+      const activate = tab => {
+        group(tab).forEach(item => {
+          const active = item === tab;
+          item.setAttribute('aria-selected', String(active));
+          item.tabIndex = active ? 0 : -1;
+          const panel = document.getElementById(item.getAttribute('aria-controls'));
+          if (panel && root.contains(panel)) panel.hidden = !active;
+        });
+      };
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          if (enabled(tab)) activate(tab);
+        });
+        tab.addEventListener('keydown', event => {
+          if (
+            event.defaultPrevented ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey
+          )
+            return;
+          const choices = group(tab).filter(enabled);
+          const vertical =
+            tab.closest('[role="tablist"]')?.getAttribute('aria-orientation') === 'vertical';
+          const previous = vertical ? 'ArrowUp' : 'ArrowLeft';
+          const next = vertical ? 'ArrowDown' : 'ArrowRight';
+          const index = choices.indexOf(tab);
+          if (index < 0 || ![previous, next, 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const target =
+            event.key === 'Home'
+              ? choices[0]
+              : event.key === 'End'
+                ? choices.at(-1)
+                : choices[
+                    (index + (event.key === next ? 1 : -1) + choices.length) % choices.length
+                  ];
+          activate(target);
+          target.focus({ preventScroll: true });
+        });
+      });
+      const groups = [...new Set(tabs.map(tab => tab.closest('[role="tablist"]')))];
+      groups.forEach(list => {
+        const choices = tabs.filter(tab => tab.closest('[role="tablist"]') === list);
+        const selected =
+          choices.find(tab => enabled(tab) && tab.getAttribute('aria-selected') === 'true') ||
+          choices.find(enabled);
+        if (selected) activate(selected);
+        else
+          choices.forEach(tab => {
+            tab.tabIndex = -1;
+          });
+      });
+    },
+    icons(root) {
+      // Small geometric symbols authored for this runtime, not a third-party icon set.
+      const shapes = {
+        plus: [['path', { d: 'M12 5V19M5 12H19' }]],
+        close: [['path', { d: 'M6 6L18 18M18 6L6 18' }]],
+        check: [['path', { d: 'M5 12L10 17L19 7' }]],
+        menu: [['path', { d: 'M4 6H20M4 12H20M4 18H20' }]],
+        search: [
+          ['circle', { cx: 10, cy: 10, r: 6 }],
+          ['path', { d: 'M15 15L21 21' }],
+        ],
+        next: [['path', { d: 'M9 5L16 12L9 19' }]],
+        previous: [['path', { d: 'M15 5L8 12L15 19' }]],
+      };
+      root.querySelectorAll('[data-raccoon-icon]').forEach(element => {
+        const definition = shapes[element.getAttribute('data-raccoon-icon')];
+        if (!definition) return;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        Object.entries({
+          viewBox: '0 0 24 24',
+          width: 18,
+          height: 18,
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.75,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          'aria-hidden': 'true',
+        }).forEach(([key, value]) => svg.setAttribute(key, String(value)));
+        definition.forEach(([tag, attributes]) => {
+          const shape = document.createElementNS('http://www.w3.org/2000/svg', tag);
+          Object.entries(attributes).forEach(([key, value]) =>
+            shape.setAttribute(key, String(value)),
+          );
+          svg.append(shape);
+        });
+        element.replaceChildren(svg);
+      });
+    },
+    schedule(root, events) {
+      const list = document.createElement('ol');
+      list.className = 'rv-schedule';
+      [...events]
+        .sort((a, b) => a.start.localeCompare(b.start))
+        .forEach(event => {
+          const row = document.createElement('li'),
+            time = document.createElement('time');
+          const title = document.createElement('span');
+          time.textContent = `${event.start}–${event.end}`;
+          title.textContent = event.title;
+          row.append(time, title);
+          list.append(row);
+        });
+      root.replaceChildren(list);
+    },
+  };
+})();
+
+</script>
+<div id="semtrack-app">
+<style>
+#semtrack-app{
+  --st-bg:#FFFFFF; --st-side:#F7F7F5; --st-ink:#37352F; --st-muted:#787774;
+  --st-border:#E9E9E7; --st-hover:#EFEFED; --st-primary:#2383E2;
+  --st-blue-bg:#E7F3F8; --st-blue-ink:#2E6E8E;
+  --st-orange-bg:#FAEBDD; --st-orange-ink:#9A5B2D;
+  --st-purple-bg:#F6F3F9; --st-purple-ink:#6F5B9E;
+  --st-green-bg:#EDF3EC; --st-green-ink:#3E7A4E;
+  --st-red-bg:#FDEBEC; --st-red-ink:#B4494C;
+  --st-yellow-bg:#FBF3DB; --st-yellow-ink:#8A6D1F;
+  --st-gray-bg:#F1F1EF; --st-gray-ink:#6B6B68;
+  --st-font:ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  background:var(--st-bg); color:var(--st-ink); font-family:var(--st-font);
+  font-size:14px; line-height:1.55; border:1px solid var(--st-border); border-radius:8px;
+  overflow:hidden; position:relative; min-height:620px;
+}
+#semtrack-app *,#semtrack-app *::before,#semtrack-app *::after{box-sizing:border-box;}
+#semtrack-app button{font-family:inherit; cursor:pointer; color:inherit;}
+#semtrack-app :focus-visible{outline:2px solid var(--st-primary); outline-offset:1px; border-radius:3px;}
+#semtrack-app .st-muted{color:var(--st-muted);}
+#semtrack-app .st-layout{display:flex; min-height:620px;}
+#semtrack-app .st-side{flex:none; width:200px; background:var(--st-side); border-right:1px solid var(--st-border); padding:12px 8px; display:flex; flex-direction:column; gap:2px;}
+#semtrack-app .st-workspace{display:flex; align-items:center; gap:8px; padding:6px 10px 12px; font-weight:600; font-size:14px;}
+#semtrack-app .st-workspace .st-ws-icon{width:22px; height:22px; border-radius:4px; background:var(--st-ink); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex:none;}
+#semtrack-app .st-nav{display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:none; border:none; border-radius:4px; padding:5px 10px; font-size:14px; color:var(--st-ink); transition:background .1s;}
+#semtrack-app .st-nav:hover{background:var(--st-hover);}
+#semtrack-app .st-nav[aria-current="page"]{background:var(--st-hover); font-weight:600;}
+#semtrack-app .st-nav svg{flex:none; opacity:.7;}
+#semtrack-app .st-nav .st-n{margin-left:auto; font-size:12px; color:var(--st-muted); background:var(--st-bg); border:1px solid var(--st-border); border-radius:999px; padding:0 7px; line-height:17px;}
+#semtrack-app .st-side-foot{margin-top:auto; padding:10px; font-size:12px; color:var(--st-muted); border-top:1px solid var(--st-border); line-height:1.5;}
+#semtrack-app .st-main{flex:1; min-width:0; padding:28px 36px 40px;}
+#semtrack-app .st-view{display:none;}
+#semtrack-app .st-view.st-active{display:block; animation:stIn .16s ease;}
+@keyframes stIn{from{opacity:0;}to{opacity:1;}}
+#semtrack-app .st-page-title{font-size:30px; font-weight:700; margin:0 0 4px; letter-spacing:-.2px;}
+#semtrack-app .st-page-desc{color:var(--st-muted); font-size:14px; margin:0 0 20px;}
+#semtrack-app .st-demo{display:inline-block; font-size:11px; color:var(--st-yellow-ink); background:var(--st-yellow-bg); border-radius:4px; padding:2px 8px; margin-left:10px; vertical-align:middle; font-weight:500;}
+#semtrack-app .st-tag{display:inline-flex; align-items:center; gap:5px; font-size:12px; border-radius:4px; padding:1px 8px; white-space:nowrap; font-weight:500;}
+#semtrack-app .st-tag-blue{background:var(--st-blue-bg); color:var(--st-blue-ink);}
+#semtrack-app .st-tag-orange{background:var(--st-orange-bg); color:var(--st-orange-ink);}
+#semtrack-app .st-tag-purple{background:var(--st-purple-bg); color:var(--st-purple-ink);}
+#semtrack-app .st-tag-green{background:var(--st-green-bg); color:var(--st-green-ink);}
+#semtrack-app .st-tag-red{background:var(--st-red-bg); color:var(--st-red-ink);}
+#semtrack-app .st-tag-yellow{background:var(--st-yellow-bg); color:var(--st-yellow-ink);}
+#semtrack-app .st-tag-gray{background:var(--st-gray-bg); color:var(--st-gray-ink);}
+#semtrack-app .st-btn{border:1px solid var(--st-border); background:var(--st-bg); border-radius:6px; padding:5px 12px; font-size:13px; font-weight:500; transition:background .1s;}
+#semtrack-app .st-btn:hover{background:var(--st-hover);}
+#semtrack-app .st-btn-primary{background:var(--st-primary); border-color:var(--st-primary); color:#fff;}
+#semtrack-app .st-btn-primary:hover{background:#1a73cc;}
+#semtrack-app .st-btn[disabled]{opacity:.45; cursor:not-allowed;}
+#semtrack-app .st-check{width:16px; height:16px; flex:none; border:1.5px solid #C9C9C7; border-radius:3px; background:#fff; display:inline-flex; align-items:center; justify-content:center; color:transparent; font-size:11px; padding:0; transition:all .1s; vertical-align:middle;}
+#semtrack-app .st-check:hover{border-color:var(--st-primary);}
+#semtrack-app .st-check[aria-pressed="true"]{background:var(--st-primary); border-color:var(--st-primary); color:#fff;}
+#semtrack-app .st-bar{height:6px; background:var(--st-gray-bg); border-radius:999px; overflow:hidden; flex:none;}
+#semtrack-app .st-bar i{display:block; height:100%; border-radius:999px; transition:width .25s ease;}
+</style><style>
+#semtrack-app .st-table{width:100%; border-collapse:collapse; font-size:14px;}
+#semtrack-app .st-table th{text-align:left; font-size:12px; font-weight:500; color:var(--st-muted); padding:6px 10px; border-bottom:1px solid var(--st-border); white-space:nowrap;}
+#semtrack-app .st-table td{padding:7px 10px; border-bottom:1px solid var(--st-border); vertical-align:middle;}
+#semtrack-app .st-table tr:hover td{background:#FAFAF9;}
+#semtrack-app .st-table .st-done-title{text-decoration:line-through; color:var(--st-muted);}
+#semtrack-app .st-toolbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+#semtrack-app .st-chip{border:1px solid var(--st-border); background:var(--st-bg); border-radius:999px; padding:2px 11px; font-size:12px; color:var(--st-muted); display:inline-flex; align-items:center; gap:6px;}
+#semtrack-app .st-chip[aria-pressed="true"]{border-color:var(--st-ink); color:var(--st-ink); font-weight:600;}
+#semtrack-app .st-chip .st-dot{width:8px; height:8px; border-radius:50%; flex:none;}
+#semtrack-app .st-select{border:1px solid var(--st-border); border-radius:6px; padding:4px 8px; font-size:13px; background:var(--st-bg); color:var(--st-ink); font-family:inherit;}
+#semtrack-app .st-empty{border:1px dashed var(--st-border); border-radius:6px; padding:22px; text-align:center; color:var(--st-muted); font-size:13px; display:flex; flex-direction:column; gap:10px; align-items:center;}
+#semtrack-app .st-section-title{font-size:16px; font-weight:600; margin:22px 0 10px; display:flex; align-items:center; gap:8px;}
+#semtrack-app .st-section-title .st-muted{font-size:12px; font-weight:400;}
+#semtrack-app .st-ov-grid{display:grid; grid-template-columns:1.4fr 1fr; gap:28px; align-items:start;}
+#semtrack-app .st-ov-item{display:flex; align-items:center; gap:10px; padding:7px 6px; border-bottom:1px solid var(--st-border);}
+#semtrack-app .st-ov-item:last-child{border-bottom:none;}
+#semtrack-app .st-ov-title{flex:1; min-width:0; font-size:14px;}
+#semtrack-app .st-ov-title small{display:block; color:var(--st-muted); font-size:12px;}
+#semtrack-app .st-ov-due{flex:none; font-size:12px; color:var(--st-muted); white-space:nowrap;}
+#semtrack-app .st-ov-due.st-overdue{color:var(--st-red-ink); font-weight:600;}
+#semtrack-app .st-ov-due.st-soon{color:var(--st-yellow-ink); font-weight:600;}
+#semtrack-app .st-pj-row{display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid var(--st-border); width:100%; background:none; border-left:none; border-right:none; border-top:none; text-align:left; font-size:14px;}
+#semtrack-app .st-pj-row:hover{background:#FAFAF9;}
+#semtrack-app .st-pj-row .st-pj-name{flex:1; min-width:0;}
+#semtrack-app .st-pj-row .st-pj-name small{display:block; color:var(--st-muted); font-size:12px;}
+#semtrack-app .st-pj-row .st-bar{width:90px;}
+#semtrack-app .st-pj-pct{flex:none; font-size:12px; color:var(--st-muted); width:38px; text-align:right;}
+#semtrack-app .st-statline{display:flex; gap:22px; flex-wrap:wrap; margin-bottom:6px;}
+#semtrack-app .st-stat b{font-size:22px; font-weight:700; display:block; line-height:1.2;}
+#semtrack-app .st-stat span{font-size:12px; color:var(--st-muted);}
+#semtrack-app .st-stat.st-alert b{color:var(--st-red-ink);}
+#semtrack-app .st-form{border:1px solid var(--st-border); border-radius:6px; padding:12px; margin-top:14px; background:#FAFAF9;}
+#semtrack-app .st-form-grid{display:grid; grid-template-columns:2fr 1fr 1fr 1fr auto; gap:8px; align-items:end;}
+#semtrack-app .st-field label{display:block; font-size:11px; color:var(--st-muted); margin-bottom:3px;}
+#semtrack-app .st-field input,#semtrack-app .st-field select{width:100%; border:1px solid var(--st-border); border-radius:5px; padding:5px 8px; font-size:13px; font-family:inherit; background:#fff; color:var(--st-ink);}
+#semtrack-app .st-field .st-err{display:none; font-size:11px; color:var(--st-red-ink); margin-top:3px;}
+#semtrack-app .st-field.st-invalid input{border-color:var(--st-red-ink);}
+#semtrack-app .st-field.st-invalid .st-err{display:block;}
+#semtrack-app .st-pj-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
+#semtrack-app .st-pj-card{border:1px solid var(--st-border); border-radius:8px; padding:14px; background:var(--st-bg); text-align:left; width:100%; transition:box-shadow .12s;}
+#semtrack-app .st-pj-card:hover{box-shadow:0 2px 8px rgba(55,53,47,.1);}
+#semtrack-app .st-pj-card h4{margin:6px 0 4px; font-size:15px; font-weight:600;}
+#semtrack-app .st-pj-card .st-pj-meta{font-size:12px; color:var(--st-muted); margin-bottom:10px;}
+#semtrack-app .st-pj-card .st-bar{margin-bottom:6px;}
+#semtrack-app .st-pj-card .st-pj-foot{display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--st-muted);}
+#semtrack-app .st-avatars{display:inline-flex;}
+#semtrack-app .st-avatar{width:20px; height:20px; border-radius:50%; color:#fff; font-size:10px; display:inline-flex; align-items:center; justify-content:center; border:1.5px solid #fff; margin-left:-5px; font-weight:600;}
+#semtrack-app .st-avatar:first-child{margin-left:0;}
+#semtrack-app .st-task{display:flex; align-items:center; gap:10px; padding:7px 6px; border-bottom:1px solid var(--st-border); font-size:14px;}
+#semtrack-app .st-task:last-child{border-bottom:none;}
+#semtrack-app .st-task .st-task-title{flex:1; min-width:0;}
+#semtrack-app .st-task.st-task-done .st-task-title{text-decoration:line-through; color:var(--st-muted);}
+#semtrack-app .st-task .st-task-due{font-size:12px; color:var(--st-muted); white-space:nowrap;}
+#semtrack-app .st-detail-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px;}
+#semtrack-app .st-detail-head h3{margin:0; font-size:20px; font-weight:700;}
+#semtrack-app .st-cal-head{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+#semtrack-app .st-cal-title{font-size:16px; font-weight:600; min-width:110px;}
+#semtrack-app .st-cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+#semtrack-app .st-cal-dow{font-size:11px; color:var(--st-muted); text-align:center; padding:4px 0;}
+#semtrack-app .st-cal-cell{border:1px solid var(--st-border); border-radius:6px; min-height:84px; padding:5px; display:flex; flex-direction:column; gap:3px; background:var(--st-bg);}
+#semtrack-app .st-cal-cell.st-out{opacity:.4; border-style:dashed;}
+#semtrack-app .st-cal-cell.st-today{border-color:var(--st-primary); box-shadow:inset 0 0 0 1px var(--st-primary);}
+#semtrack-app .st-cal-num{font-size:11px; color:var(--st-muted);}
+#semtrack-app .st-cal-cell.st-today .st-cal-num{color:var(--st-primary); font-weight:700;}
+#semtrack-app .st-cal-ev{border:none; text-align:left; font-size:11px; border-radius:4px; padding:2px 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;}
+#semtrack-app .st-cal-ev.st-ev-done{opacity:.55; text-decoration:line-through;}
+#semtrack-app .st-dialog-back{position:absolute; inset:0; background:rgba(55,53,47,.35); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;}
+#semtrack-app .st-dialog-back.st-open{display:flex;}
+#semtrack-app .st-dialog{background:#fff; border-radius:8px; max-width:400px; width:100%; padding:18px; box-shadow:0 12px 32px rgba(55,53,47,.25);}
+#semtrack-app .st-dialog h4{margin:0 0 10px; font-size:16px;}
+#semtrack-app .st-dialog-meta{font-size:13px; color:var(--st-muted); display:flex; flex-direction:column; gap:6px; margin-bottom:14px;}
+#semtrack-app .st-dialog-actions{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;}
+#semtrack-app .st-toast{position:absolute; left:50%; bottom:16px; transform:translateX(-50%) translateY(6px); background:var(--st-ink); color:#fff; font-size:13px; border-radius:6px; padding:8px 14px; opacity:0; pointer-events:none; transition:all .18s ease; z-index:50; max-width:90%;}
+#semtrack-app .st-toast.st-show{opacity:1; transform:translateX(-50%);}
+@media (max-width:900px){
+  #semtrack-app .st-layout{flex-direction:column;}
+  #semtrack-app .st-side{width:100%; flex-direction:row; align-items:center; overflow-x:auto; border-right:none; border-bottom:1px solid var(--st-border); padding:8px;}
+  #semtrack-app .st-workspace{padding:0 8px 0 4px;}
+  #semtrack-app .st-nav{width:auto; white-space:nowrap;}
+  #semtrack-app .st-side-foot{display:none;}
+  #semtrack-app .st-main{padding:20px 16px 32px;}
+  #semtrack-app .st-ov-grid{grid-template-columns:1fr;}
+  #semtrack-app .st-form-grid{grid-template-columns:1fr 1fr;}
+  #semtrack-app .st-cal-cell{min-height:60px;}
+  #semtrack-app .st-table-wrap{overflow-x:auto;}
+}
+@media (prefers-reduced-motion:reduce){
+  #semtrack-app *,#semtrack-app *::before,#semtrack-app *::after{animation:none!important; transition:none!important;}
+}
+</style>
+<div class="st-layout">
+  <nav class="st-side" aria-label="主導覽">
+    <div class="st-workspace"><span class="st-ws-icon">S</span>我的學期</div>
+    <button type="button" class="st-nav" data-view="overview" aria-current="page"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>總覽</button>
+    <button type="button" class="st-nav" data-view="assignments"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Assignments <span class="st-n" id="st-nav-as-n"></span></button>
+    <button type="button" class="st-nav" data-view="projects"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5" cy="5" r="2.4"/><circle cx="11" cy="6" r="2"/><path d="M1.5 13c.6-2.4 2-3.6 3.5-3.6S8 10.6 8.5 13M9 12.6c.4-1.8 1.2-2.7 2.2-2.7 1 0 1.9.9 2.3 2.7"/></svg>Group Projects</button>
+    <button type="button" class="st-nav" data-view="calendar"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>日曆</button>
+    <div class="st-side-foot">2026–27 上學期<br>第 11 週 · 示範數據<br><span style="font-size:11px;">Moodle 自動匯入：Phase 2</span></div>
+  </nav>
+  <main class="st-main">
+    <section class="st-view st-active" id="st-view-overview" aria-label="總覽">
+      <h2 class="st-page-title">總覽<span class="st-demo">DEMO · 虛構示範數據</span></h2>
+      <p class="st-page-desc">一個平台，掌握這學期的 Assignment 與 Group Project 進度。今天是 2026/11/17（第 11 週）。</p>
+      <div class="st-statline" id="st-ov-stats"></div>
+      <div class="st-ov-grid">
+        <div>
+          <div class="st-section-title">即将到期 <span class="st-muted">未完成 · 按截止日排序</span></div>
+          <div id="st-ov-due"></div>
+        </div>
+        <div>
+          <div class="st-section-title">Group Project 進度 <span class="st-muted">已完成任務 / 全部任務</span></div>
+          <div id="st-ov-projects"></div>
+        </div>
+      </div>
+    </section>    <section class="st-view" id="st-view-assignments" aria-label="Assignments">
+      <h2 class="st-page-title">Assignments</h2>
+      <p class="st-page-desc">所有課程的作業與小測。勾選即標記完成，總覽與日曆同步更新。</p>
+      <div class="st-toolbar">
+        <span id="st-as-filters" role="group" aria-label="課程篩選"></span>
+        <select class="st-select" id="st-as-status" aria-label="狀態篩選">
+          <option value="all">全部狀態</option>
+          <option value="todo">未完成</option>
+          <option value="done">已完成</option>
+          <option value="overdue">已逾期</option>
+        </select>
+        <span style="flex:1"></span>
+        <button type="button" class="st-btn st-btn-primary" id="st-as-add-toggle">＋ 新增 assignment</button>
+      </div>
+      <div class="st-form" id="st-as-form" hidden>
+        <div class="st-form-grid">
+          <div class="st-field" id="st-f-title-wrap"><label for="st-f-title">名稱</label><input id="st-f-title" type="text" placeholder="例如：Assignment 5 — Hashing"><span class="st-err">請填寫名稱</span></div>
+          <div class="st-field"><label for="st-f-course">課程</label><select id="st-f-course"></select></div>
+          <div class="st-field"><label for="st-f-type">類型</label><select id="st-f-type"><option value="assignment">作業</option><option value="quiz">小測</option><option value="exam">考試</option></select></div>
+          <div class="st-field" id="st-f-date-wrap"><label for="st-f-date">截止日期</label><input id="st-f-date" type="date" value="2026-12-11"><span class="st-err">請選有效日期</span></div>
+          <button type="button" class="st-btn st-btn-primary" id="st-as-save">儲存</button>
+        </div>
+        <div style="margin-top:8px;"><button type="button" class="st-btn" id="st-as-cancel">取消</button></div>
+      </div>
+      <div class="st-table-wrap" style="margin-top:14px;">
+        <table class="st-table">
+          <thead><tr><th style="width:34px;"></th><th>名稱</th><th>課程</th><th>類型</th><th>截止日期</th><th>狀態</th></tr></thead>
+          <tbody id="st-as-tbody"></tbody>
+        </table>
+      </div>
+      <div class="st-empty" id="st-as-empty" hidden>沒有符合篩選的 assignment。<button type="button" class="st-btn" id="st-as-clear">清除篩選</button></div>
+    </section>
+    <section class="st-view" id="st-view-projects" aria-label="Group Projects">
+      <h2 class="st-page-title">Group Projects</h2>
+      <p class="st-page-desc">每個專題的任務分工與里程碑。點進專題可勾選任務，進度即時推導。</p>
+      <div class="st-pj-grid" id="st-pj-grid"></div>
+    </section>
+    <section class="st-view" id="st-view-project-detail" aria-label="專題詳情">
+      <button type="button" class="st-btn" id="st-pd-back" style="margin-bottom:14px;">← 返回 Group Projects</button>
+      <div class="st-detail-head"><h3 id="st-pd-title"></h3><span id="st-pd-course"></span><span id="st-pd-status"></span></div>
+      <p class="st-page-desc" id="st-pd-desc"></p>
+      <div class="st-ov-grid">
+        <div>
+          <div class="st-section-title">任務清單 <span class="st-muted" id="st-pd-taskcount"></span></div>
+          <div id="st-pd-tasks"></div>
+          <div class="st-form" style="margin-top:12px;">
+            <div class="st-form-grid" style="grid-template-columns:2fr 1fr 1fr auto;">
+              <div class="st-field" id="st-pt-title-wrap"><label for="st-pt-title">新任務</label><input id="st-pt-title" type="text" placeholder="例如：整理問卷數據"><span class="st-err">請填寫任務名稱</span></div>
+              <div class="st-field"><label for="st-pt-owner">負責人</label><select id="st-pt-owner"></select></div>
+              <div class="st-field"><label for="st-pt-due">截止日</label><input id="st-pt-due" type="date" value="2026-12-04"></div>
+              <button type="button" class="st-btn st-btn-primary" id="st-pt-add">加入</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="st-section-title">里程碑</div>
+          <div id="st-pd-miles"></div>
+          <div class="st-section-title">整體進度</div>
+          <div style="display:flex; align-items:center; gap:10px;"><div class="st-bar" style="flex:1;"><i id="st-pd-bar" style="background:var(--st-primary);"></i></div><span class="st-muted" id="st-pd-pct" style="font-size:13px;"></span></div>
+        </div>
+      </div>
+    </section>
+    <section class="st-view" id="st-view-calendar" aria-label="日曆">
+      <h2 class="st-page-title">日曆</h2>
+      <p class="st-page-desc">作業截止與專題里程碑的月視圖。點事件可查看詳情或標記完成。</p>
+      <div class="st-cal-head">
+        <button type="button" class="st-btn" id="st-cal-prev" aria-label="上一個月">←</button>
+        <span class="st-cal-title" id="st-cal-title"></span>
+        <button type="button" class="st-btn" id="st-cal-next" aria-label="下一個月">→</button>
+        <button type="button" class="st-btn" id="st-cal-today">回到今天</button>
+        <span style="flex:1"></span>
+        <span id="st-cal-filters" role="group" aria-label="課程篩選"></span>
+      </div>
+      <div class="st-cal-grid" id="st-cal-dow"></div>
+      <div class="st-cal-grid" id="st-cal-grid" style="margin-top:4px;"></div>
+      <div class="st-empty" id="st-cal-empty" hidden style="margin-top:12px;">這個月沒有符合篩選的事件。<button type="button" class="st-btn" id="st-cal-clear">清除課程篩選</button></div>
+    </section>
+  </main>
+</div>
+<div class="st-dialog-back" id="st-dialog-back">
+  <div class="st-dialog" role="dialog" aria-modal="true" aria-labelledby="st-dialog-title">
+    <h4 id="st-dialog-title"></h4>
+    <div class="st-dialog-meta" id="st-dialog-meta"></div>
+    <div class="st-dialog-actions" id="st-dialog-actions"></div>
+  </div>
+</div>
+<div class="st-toast" id="st-toast" role="status" aria-live="polite"></div>
+</div><script>
+(function(){
+"use strict";
+var root=document.getElementById('semtrack-app');
+function $(id){return root.querySelector('#'+id);}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+var TODAY=new Date(2026,10,17);
+var COURSES=[
+ {id:'cs310',code:'CS310',name:'數據結構',tag:'blue',dot:'#2E6E8E'},
+ {id:'econ201',code:'ECON201',name:'個體經濟學',tag:'orange',dot:'#9A5B2D'},
+ {id:'psy101',code:'PSY101',name:'心理學導論',tag:'purple',dot:'#6F5B9E'},
+ {id:'stat220',code:'STAT220',name:'統計推論',tag:'green',dot:'#3E7A4E'}
+];
+var CMAP={};COURSES.forEach(function(c){CMAP[c.id]=c;});
+var TYPE={assignment:{label:'作業',tag:'gray'},quiz:{label:'小測',tag:'yellow'},exam:{label:'考試',tag:'red'}};
+var assignments=[
+ {id:'a1',course:'cs310',type:'assignment',title:'Assignment 3 — Balanced BST',date:'2026-11-06',done:true},
+ {id:'a2',course:'econ201',type:'quiz',title:'Quiz 2（供需彈性）',date:'2026-11-10',done:true},
+ {id:'a3',course:'psy101',type:'assignment',title:'Reflection Essay 2',date:'2026-11-13',done:false},
+ {id:'a4',course:'stat220',type:'quiz',title:'Quiz 3（假設檢定）',date:'2026-11-19',done:false},
+ {id:'a5',course:'cs310',type:'assignment',title:'Assignment 4 — Graph Algorithms',date:'2026-11-20',done:false},
+ {id:'a6',course:'econ201',type:'assignment',title:'Problem Set 4',date:'2026-11-24',done:false},
+ {id:'a7',course:'cs310',type:'exam',title:'Midterm 2',date:'2026-12-03',done:false},
+ {id:'a8',course:'stat220',type:'assignment',title:'Assignment 5 — Regression',date:'2026-12-08',done:false},
+ {id:'a9',course:'econ201',type:'exam',title:'Final Exam',date:'2026-12-15',done:false},
+ {id:'a10',course:'cs310',type:'exam',title:'Final Exam',date:'2026-12-17',done:false},
+ {id:'a11',course:'psy101',type:'exam',title:'Final Exam',date:'2026-12-18',done:false},
+ {id:'a12',course:'stat220',type:'exam',title:'Final Exam',date:'2026-12-21',done:false}
+];
+var projects=[
+ {id:'p1',course:'psy101',title:'社區壓力調查專題',desc:'小組研究大學生壓力來源，含問卷、訪談與期末報告。',due:'2026-12-10',
+  members:[{name:'我',color:'#2E6E8E'},{name:'Amy',color:'#9A5B2D'},{name:'Ken',color:'#6F5B9E'},{name:'Yui',color:'#3E7A4E'}],
+  tasks:[
+   {id:'t1',title:'文獻回顧整理',owner:'我',due:'2026-11-06',done:true},
+   {id:'t2',title:'問卷設計與發放',owner:'Amy',due:'2026-11-14',done:true},
+   {id:'t3',title:'回收問卷數據清理',owner:'Yui',due:'2026-11-21',done:false},
+   {id:'t4',title:'訪談大綱與執行',owner:'Ken',due:'2026-11-25',done:false},
+   {id:'t5',title:'統計分析與圖表',owner:'我',due:'2026-12-01',done:false},
+   {id:'t6',title:'期末報告撰寫',owner:'我',due:'2026-12-08',done:false}],
+  miles:[{id:'m1',title:'問卷回收截止',date:'2026-11-20'},{id:'m2',title:'報告初稿',date:'2026-12-04'},{id:'m3',title:'期末口頭報告',date:'2026-12-10'}]},
+ {id:'p2',course:'cs310',title:'校園導航 App 專題',desc:'三人小組實作最短路徑校園導航，含 demo 與技術文件。',due:'2026-12-14',
+  members:[{name:'我',color:'#2E6E8E'},{name:'Leo',color:'#B4494C'},{name:'Mia',color:'#8A6D1F'}],
+  tasks:[
+   {id:'t7',title:'需求與架構設計',owner:'我',due:'2026-11-08',done:true},
+   {id:'t8',title:'地圖資料建模',owner:'Leo',due:'2026-11-18',done:false},
+   {id:'t9',title:'路徑演算法實作',owner:'我',due:'2026-11-28',done:false},
+   {id:'t10',title:'前端介面',owner:'Mia',due:'2026-12-05',done:false},
+   {id:'t11',title:'Demo 與文件',owner:'Leo',due:'2026-12-12',done:false}],
+  miles:[{id:'m4',title:'Prototype demo',date:'2026-12-07'},{id:'m5',title:'期末繳交',date:'2026-12-14'}]}
+];
+var state={view:'overview',asFilter:{},asStatus:'all',calFilter:{},calY:2026,calM:10,pj:null,seq:100};
+function d(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function fmt(s){var t=d(s);return (t.getMonth()+1)+'/'+t.getDate();}
+function diff(s){return Math.round((d(s)-TODAY)/86400000);}
+function pjProg(p){var n=p.tasks.length,k=p.tasks.filter(function(t){return t.done;}).length;return n?Math.round(k/n*100):0;}
+function toast(m){var t=$('st-toast');t.textContent=m;t.classList.add('st-show');clearTimeout(toast._h);toast._h=setTimeout(function(){t.classList.remove('st-show');},2400);}
+function courseTag(id){var c=CMAP[id];return '<span class="st-tag st-tag-'+c.tag+'">'+esc(c.code)+'</span>';}
+function statusTag(a){
+  if(a.done)return '<span class="st-tag st-tag-green">已完成</span>';
+  var dd=diff(a.date);
+  if(dd<0)return '<span class="st-tag st-tag-red">已逾期</span>';
+  if(dd<=3)return '<span class="st-tag st-tag-yellow">剩 '+dd+' 天</span>';
+  return '<span class="st-tag st-tag-gray">未完成</span>';
+}
+/* dialog */
+var dlgFocus=null;
+function openDialog(title,metaHtml,actions){
+  dlgFocus=document.activeElement;
+  $('st-dialog-title').textContent=title;
+  $('st-dialog-meta').innerHTML=metaHtml;
+  var box=$('st-dialog-actions');box.innerHTML='';
+  actions.forEach(function(a){
+    var b=document.createElement('button');b.type='button';b.className='st-btn'+(a.primary?' st-btn-primary':'');b.textContent=a.label;
+    b.addEventListener('click',function(){closeDialog();if(a.fn)a.fn();});box.appendChild(b);
+  });
+  $('st-dialog-back').classList.add('st-open');
+  box.querySelector('button').focus();
+}
+function closeDialog(){$('st-dialog-back').classList.remove('st-open');if(dlgFocus&&dlgFocus.focus)dlgFocus.focus();}
+$('st-dialog-back').addEventListener('click',function(e){if(e.target===this)closeDialog();});
+root.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('st-dialog-back').classList.contains('st-open'))closeDialog();});
+/* navigation */
+function go(view){
+  state.view=view;
+  root.querySelectorAll('.st-nav').forEach(function(b){
+    if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+  });
+  root.querySelectorAll('.st-view').forEach(function(v){v.classList.remove('st-active');});
+  $('st-view-'+view).classList.add('st-active');
+  renderAll();
+}
+root.querySelectorAll('.st-nav').forEach(function(b){b.addEventListener('click',function(){go(b.dataset.view);});});/* ---- overview ---- */
+function renderOverview(){
+  var todo=assignments.filter(function(a){return !a.done;});
+  var overdue=todo.filter(function(a){return diff(a.date)<0;});
+  var soon=todo.filter(function(a){var dd=diff(a.date);return dd>=0&&dd<=7;});
+  var doneN=assignments.length-todo.length;
+  $('st-ov-stats').innerHTML=
+    '<div class="st-stat'+(overdue.length?' st-alert':'')+'"><b>'+overdue.length+'</b><span>已逾期</span></div>'+
+    '<div class="st-stat"><b>'+soon.length+'</b><span>7 天內到期</span></div>'+
+    '<div class="st-stat"><b>'+doneN+' / '+assignments.length+'</b><span>Assignments 完成</span></div>'+
+    '<div class="st-stat"><b>'+projects.length+'</b><span>進行中專題</span></div>';
+  var list=todo.slice().sort(function(a,b){return d(a.date)-d(b.date);}).slice(0,6);
+  var box=$('st-ov-due');box.innerHTML='';
+  if(!list.length){box.innerHTML='<div class="st-empty">全部完成了，這學期暫時沒有待辦。</div>';}
+  list.forEach(function(a){
+    var dd=diff(a.date);
+    var cls=dd<0?' st-overdue':(dd<=3?' st-soon':'');
+    var row=document.createElement('div');row.className='st-ov-item';
+    row.innerHTML='<button type="button" class="st-check" aria-pressed="false" aria-label="標記完成：'+esc(a.title)+'">✓</button>'+
+      '<div class="st-ov-title">'+esc(a.title)+'<small>'+esc(CMAP[a.course].code)+' · '+TYPE[a.type].label+'</small></div>'+
+      '<span class="st-ov-due'+cls+'">'+fmt(a.date)+(dd<0?'（逾期 '+(-dd)+' 天）':'')+'</span>';
+    row.querySelector('.st-check').addEventListener('click',function(){a.done=true;toast('已完成：'+a.title);renderAll();});
+    box.appendChild(row);
+  });
+  var pbox=$('st-ov-projects');pbox.innerHTML='';
+  projects.forEach(function(p){
+    var pct=pjProg(p);
+    var b=document.createElement('button');b.type='button';b.className='st-pj-row';
+    b.innerHTML='<div class="st-pj-name">'+esc(p.title)+'<small>'+esc(CMAP[p.course].code)+' · 截止 '+fmt(p.due)+'</small></div>'+
+      '<div class="st-bar"><i style="width:'+pct+'%;background:'+CMAP[p.course].dot+';"></i></div><span class="st-pj-pct">'+pct+'%</span>';
+    b.addEventListener('click',function(){openProject(p.id);});
+    pbox.appendChild(b);
+  });
+}
+/* ---- assignments ---- */
+function buildFilters(container,map,onchange){
+  container.innerHTML='';
+  COURSES.forEach(function(c){
+    var b=document.createElement('button');b.type='button';b.className='st-chip';
+    b.setAttribute('aria-pressed',map[c.id]?'true':'false');
+    b.innerHTML='<span class="st-dot" style="background:'+c.dot+';"></span>'+esc(c.code);
+    b.addEventListener('click',function(){if(map[c.id])delete map[c.id];else map[c.id]=true;onchange();});
+    container.appendChild(b);
+  });
+}
+function anyFilter(map){return Object.keys(map).length>0;}
+function renderAssignments(){
+  buildFilters($('st-as-filters'),state.asFilter,function(){renderAssignments();});
+  var rows=assignments.filter(function(a){
+    if(anyFilter(state.asFilter)&&!state.asFilter[a.course])return false;
+    if(state.asStatus==='todo'&&a.done)return false;
+    if(state.asStatus==='done'&&!a.done)return false;
+    if(state.asStatus==='overdue'&&(a.done||diff(a.date)>=0))return false;
+    return true;
+  }).sort(function(a,b){return d(a.date)-d(b.date);});
+  var tb=$('st-as-tbody');tb.innerHTML='';
+  rows.forEach(function(a){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><button type="button" class="st-check" aria-pressed="'+(a.done?'true':'false')+'" aria-label="標記完成：'+esc(a.title)+'">✓</button></td>'+
+      '<td class="'+(a.done?'st-done-title':'')+'">'+esc(a.title)+'</td>'+
+      '<td>'+courseTag(a.course)+'</td>'+
+      '<td><span class="st-tag st-tag-'+TYPE[a.type].tag+'">'+TYPE[a.type].label+'</span></td>'+
+      '<td class="st-muted">'+fmt(a.date)+'</td>'+
+      '<td>'+statusTag(a)+'</td>';
+    tr.querySelector('.st-check').addEventListener('click',function(){a.done=!a.done;toast(a.done?'已完成：'+a.title:'已還原為未完成：'+a.title);renderAll();});
+    tb.appendChild(tr);
+  });
+  $('st-as-empty').hidden=rows.length>0;
+  $('st-nav-as-n').textContent=assignments.filter(function(a){return !a.done;}).length;
+}
+$('st-as-status').addEventListener('change',function(){state.asStatus=this.value;renderAssignments();});
+$('st-as-clear').addEventListener('click',function(){state.asFilter={};state.asStatus='all';$('st-as-status').value='all';renderAssignments();});
+$('st-as-add-toggle').addEventListener('click',function(){var f=$('st-as-form');f.hidden=!f.hidden;if(!f.hidden)$('st-f-title').focus();});
+$('st-as-cancel').addEventListener('click',function(){$('st-as-form').hidden=true;});
+$('st-f-course').innerHTML=COURSES.map(function(c){return '<option value="'+c.id+'">'+esc(c.code)+' '+esc(c.name)+'</option>';}).join('');
+$('st-as-save').addEventListener('click',function(){
+  var title=$('st-f-title').value.trim(),date=$('st-f-date').value;
+  var ok=true;
+  $('st-f-title-wrap').classList.toggle('st-invalid',!title);if(!title)ok=false;
+  var validDate=/^\d{4}-\d{2}-\d{2}$/.test(date)&&!isNaN(d(date).getTime());
+  $('st-f-date-wrap').classList.toggle('st-invalid',!validDate);if(!validDate)ok=false;
+  if(!ok)return;
+  assignments.push({id:'a'+(++state.seq),course:$('st-f-course').value,type:$('st-f-type').value,title:title,date:date,done:false});
+  $('st-f-title').value='';$('st-as-form').hidden=true;
+  toast('已新增：'+title);renderAll();
+});
+/* ---- projects ---- */
+function renderProjects(){
+  var g=$('st-pj-grid');g.innerHTML='';
+  projects.forEach(function(p){
+    var pct=pjProg(p),c=CMAP[p.course];
+    var b=document.createElement('button');b.type='button';b.className='st-pj-card';
+    b.innerHTML=courseTag(p.course)+'<h4>'+esc(p.title)+'</h4>'+
+      '<div class="st-pj-meta">'+p.members.length+' 位成員 · 截止 '+fmt(p.due)+'</div>'+
+      '<div class="st-bar"><i style="width:'+pct+'%;background:'+c.dot+';"></i></div>'+
+      '<div class="st-pj-foot"><span class="st-avatars">'+p.members.map(function(m){return '<span class="st-avatar" style="background:'+m.color+';" title="'+esc(m.name)+'">'+esc(m.name.charAt(0))+'</span>';}).join('')+'</span><span>'+pct+'% · '+p.tasks.filter(function(t){return t.done;}).length+'/'+p.tasks.length+' 任務</span></div>';
+    b.addEventListener('click',function(){openProject(p.id);});
+    g.appendChild(b);
+  });
+}
+function openProject(id){state.pj=id;go('project-detail');}
+$('st-pd-back').addEventListener('click',function(){go('projects');});
+function renderProjectDetail(){
+  var p=null;projects.forEach(function(x){if(x.id===state.pj)p=x;});
+  if(!p){go('projects');return;}
+  var c=CMAP[p.course],pct=pjProg(p);
+  $('st-pd-title').textContent=p.title;
+  $('st-pd-course').innerHTML=courseTag(p.course);
+  $('st-pd-status').innerHTML=pct===100?'<span class="st-tag st-tag-green">已完成</span>':'<span class="st-tag st-tag-blue">進行中</span>';
+  $('st-pd-desc').textContent=p.desc+' 截止 '+fmt(p.due)+'。';
+  $('st-pd-taskcount').textContent=p.tasks.filter(function(t){return t.done;}).length+' / '+p.tasks.length+' 完成';
+  var box=$('st-pd-tasks');box.innerHTML='';
+  p.tasks.forEach(function(t){
+    var row=document.createElement('div');row.className='st-task'+(t.done?' st-task-done':'');
+    var dd=diff(t.due);
+    row.innerHTML='<button type="button" class="st-check" aria-pressed="'+(t.done?'true':'false')+'" aria-label="標記完成：'+esc(t.title)+'">✓</button>'+
+      '<span class="st-task-title">'+esc(t.title)+'</span>'+
+      '<span class="st-tag st-tag-gray">'+esc(t.owner)+'</span>'+
+      '<span class="st-task-due">'+fmt(t.due)+(!t.done&&dd<0?' · 逾期':'')+'</span>';
+    row.querySelector('.st-check').addEventListener('click',function(){t.done=!t.done;toast(t.done?'任務完成：'+t.title:'任務還原：'+t.title);renderAll();});
+    box.appendChild(row);
+  });
+  var mb=$('st-pd-miles');mb.innerHTML='';
+  p.miles.forEach(function(m){
+    var dd=diff(m.date);
+    var row=document.createElement('div');row.className='st-ov-item';
+    row.innerHTML='<div class="st-ov-title">'+esc(m.title)+'<small>里程碑</small></div><span class="st-ov-due'+(dd<0?' st-overdue':(dd<=7?' st-soon':''))+'">'+fmt(m.date)+'</span>';
+    mb.appendChild(row);
+  });
+  $('st-pd-bar').style.width=pct+'%';$('st-pd-bar').style.background=c.dot;
+  $('st-pd-pct').textContent=pct+'%';
+  $('st-pt-owner').innerHTML=p.members.map(function(m){return '<option>'+esc(m.name)+'</option>';}).join('');
+}
+$('st-pt-add').addEventListener('click',function(){
+  var p=null;projects.forEach(function(x){if(x.id===state.pj)p=x;});if(!p)return;
+  var title=$('st-pt-title').value.trim();
+  $('st-pt-title-wrap').classList.toggle('st-invalid',!title);
+  if(!title)return;
+  var due=$('st-pt-due').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(due))due=p.due;
+  p.tasks.push({id:'t'+(++state.seq),title:title,owner:$('st-pt-owner').value,due:due,done:false});
+  $('st-pt-title').value='';toast('已加入任務：'+title);renderAll();
+});/* ---- calendar ---- */
+var DOW=['一','二','三','四','五','六','日'];
+$('st-cal-dow').innerHTML=DOW.map(function(w){return '<div class="st-cal-dow">週'+w+'</div>';}).join('');
+function calEvents(){
+  var evs=assignments.map(function(a){return {kind:'as',ref:a,course:a.course,date:a.date,title:a.title,done:a.done,type:a.type};});
+  projects.forEach(function(p){
+    p.miles.forEach(function(m){evs.push({kind:'mile',ref:p,course:p.course,date:m.date,title:p.title+'：'+m.title,done:false});});
+    evs.push({kind:'pjdue',ref:p,course:p.course,date:p.due,title:p.title+'（繳交）',done:pjProg(p)===100});
+  });
+  return evs;
+}
+function renderCalendar(){
+  buildFilters($('st-cal-filters'),state.calFilter,function(){renderCalendar();});
+  var y=state.calY,m=state.calM;
+  $('st-cal-title').textContent=y+' 年 '+(m+1)+' 月';
+  var first=new Date(y,m,1);
+  var lead=(first.getDay()+6)%7;
+  var start=new Date(y,m,1-lead);
+  var evs=calEvents().filter(function(e){return !anyFilter(state.calFilter)||state.calFilter[e.course];});
+  var grid=$('st-cal-grid');grid.innerHTML='';
+  var monthCount=0;
+  for(var i=0;i<42;i++){
+    var day=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+    var inMonth=day.getMonth()===m;
+    var iso=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+    var cell=document.createElement('div');
+    cell.className='st-cal-cell'+(inMonth?'':' st-out')+(day.getTime()===TODAY.getTime()?' st-today':'');
+    cell.innerHTML='<span class="st-cal-num">'+day.getDate()+'</span>';
+    var dayEvs=evs.filter(function(e){return e.date===iso;});
+    if(inMonth)monthCount+=dayEvs.length;
+    dayEvs.slice(0,3).forEach(function(e){
+      var c=CMAP[e.course];
+      var b=document.createElement('button');b.type='button';
+      b.className='st-cal-ev'+(e.done?' st-ev-done':'');
+      b.style.background='var(--st-'+c.tag+'-bg)';b.style.color='var(--st-'+c.tag+'-ink)';
+      b.textContent=(e.kind==='as'?TYPE[e.type].label+'·':'◆ ')+e.title;
+      b.title=e.title;
+      b.addEventListener('click',function(){showEvent(e);});
+      cell.appendChild(b);
+    });
+    if(dayEvs.length>3){var more=document.createElement('span');more.className='st-cal-more st-muted';more.style.fontSize='10px';more.textContent='+'+(dayEvs.length-3)+' 更多';cell.appendChild(more);}
+    grid.appendChild(cell);
+  }
+  $('st-cal-empty').hidden=monthCount>0;
+}
+function showEvent(e){
+  var c=CMAP[e.course];
+  var meta='<span>'+courseTag(e.course)+' '+esc(c.name)+'</span><span>日期：'+fmt(e.date)+'</span>';
+  if(e.kind==='as'){
+    meta+='<span>類型：'+TYPE[e.type].label+'</span><span>狀態：'+(e.done?'已完成':'未完成')+'</span>';
+    openDialog(e.title,meta,[
+      {label:e.done?'還原為未完成':'標記完成',primary:true,fn:function(){e.ref.done=!e.ref.done;toast(e.ref.done?'已完成：'+e.ref.title:'已還原：'+e.ref.title);renderAll();}},
+      {label:'關閉'}
+    ]);
+  }else{
+    meta+='<span>'+(e.kind==='mile'?'專題里程碑':'專題繳交日')+'</span><span>進度：'+pjProg(e.ref)+'%</span>';
+    openDialog(e.title,meta,[
+      {label:'查看專題',primary:true,fn:function(){openProject(e.ref.id);}},
+      {label:'關閉'}
+    ]);
+  }
+}
+$('st-cal-prev').addEventListener('click',function(){state.calM--;if(state.calM<0){state.calM=11;state.calY--;}renderCalendar();});
+$('st-cal-next').addEventListener('click',function(){state.calM++;if(state.calM>11){state.calM=0;state.calY++;}renderCalendar();});
+$('st-cal-today').addEventListener('click',function(){state.calY=2026;state.calM=10;renderCalendar();});
+$('st-cal-clear').addEventListener('click',function(){state.calFilter={};renderCalendar();});
+/* ---- init ---- */
+function renderAll(){
+  renderOverview();
+  renderAssignments();
+  renderProjects();
+  if(state.view==='project-detail')renderProjectDetail();
+  renderCalendar();
+}
+renderAll();
+})();
+</script>

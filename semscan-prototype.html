@@ -1,0 +1,339 @@
+<div id="semscan-app">
+<style>
+#semscan-app{
+  --ss-bg:#EDF1F2; --ss-surface:#FFFFFF; --ss-ink:#17242B; --ss-muted:#5C6B74;
+  --ss-border:#D7DEE2; --ss-primary:#0E7A5F; --ss-primary-soft:#E3F0EB;
+  --ss-highlight:#FFD84D; --ss-danger:#C64545; --ss-danger-soft:#F9E9E9;
+  --ss-warn:#B7791F; --ss-warn-soft:#FBF1DE;
+  --ss-c-cs:#2B59C3; --ss-c-econ:#C77E1F; --ss-c-psy:#7A4E9E; --ss-c-stat:#0E7A5F;
+  --ss-display:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Yuanti TC","Arial Rounded MT Bold",system-ui,sans-serif;
+  --ss-body:system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;
+  --ss-mono:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;
+  background:var(--ss-bg); color:var(--ss-ink); font-family:var(--ss-body);
+  font-size:15px; line-height:1.55; border-radius:14px; overflow:hidden;
+  border:1px solid var(--ss-border); position:relative; min-height:640px;
+}
+#semscan-app *,#semscan-app *::before,#semscan-app *::after{box-sizing:border-box;}
+#semscan-app button{font-family:inherit; cursor:pointer;}
+#semscan-app :focus-visible{outline:2px solid var(--ss-primary); outline-offset:2px; border-radius:4px;}
+#semscan-app .ss-mono{font-family:var(--ss-mono);}
+#semscan-app .ss-muted{color:var(--ss-muted);}
+.ss-header{display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--ss-surface); border-bottom:1px solid var(--ss-border);}
+.ss-brand{display:flex; align-items:center; gap:10px; font-family:var(--ss-display); font-weight:800; font-size:19px; letter-spacing:.2px;}
+.ss-brand svg{flex:none;}
+.ss-brand small{font-family:var(--ss-mono); font-weight:500; font-size:11px; color:var(--ss-muted); letter-spacing:.6px;}
+.ss-demo-badge{margin-left:auto; font-size:11px; font-family:var(--ss-mono); color:var(--ss-warn); background:var(--ss-warn-soft); border:1px solid #EAD9B4; padding:3px 9px; border-radius:999px; white-space:nowrap;}
+.ss-today{font-family:var(--ss-mono); font-size:12px; color:var(--ss-muted); white-space:nowrap;}
+.ss-layout{display:flex; min-height:580px;}
+.ss-rail{flex:none; width:172px; background:var(--ss-surface); border-right:1px solid var(--ss-border); padding:14px 10px; display:flex; flex-direction:column; gap:4px;}
+.ss-nav-btn{display:flex; align-items:center; gap:9px; width:100%; text-align:left; background:none; border:1px solid transparent; border-radius:9px; padding:9px 11px; font-size:14px; font-weight:600; color:var(--ss-muted); transition:background .15s,color .15s;}
+.ss-nav-btn:hover{background:var(--ss-bg); color:var(--ss-ink);}
+.ss-nav-btn[aria-current="page"]{background:var(--ss-primary-soft); color:var(--ss-primary); border-color:#CBE2D9;}
+.ss-nav-btn .ss-count{margin-left:auto; font-family:var(--ss-mono); font-size:11px; background:var(--ss-bg); border:1px solid var(--ss-border); color:var(--ss-muted); border-radius:999px; padding:0 7px; line-height:17px;}
+.ss-nav-btn[aria-current="page"] .ss-count{background:#fff; border-color:#CBE2D9; color:var(--ss-primary);}
+.ss-rail-foot{margin-top:auto; font-size:11px; color:var(--ss-muted); padding:10px 11px; border-top:1px dashed var(--ss-border); line-height:1.5;}
+.ss-main{flex:1; min-width:0; padding:20px 22px 28px;}
+.ss-view{display:none; animation:ssFade .22s ease;}
+.ss-view.ss-active{display:block;}
+@keyframes ssFade{from{opacity:0; transform:translateY(4px);}to{opacity:1; transform:none;}}
+.ss-view-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+.ss-view-title{font-family:var(--ss-display); font-weight:800; font-size:24px; margin:0;}
+.ss-view-sub{font-size:13px; color:var(--ss-muted);}
+.ss-card{background:var(--ss-surface); border:1px solid var(--ss-border); border-radius:12px; padding:16px;}
+.ss-card h3{margin:0 0 10px; font-family:var(--ss-display); font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;}
+.ss-card h3 .ss-mono{font-size:11px; color:var(--ss-muted); font-weight:500;}
+</style><style>
+#semscan-app .ss-ribbon-wrap{background:var(--ss-surface); border-bottom:1px solid var(--ss-border); padding:12px 20px 14px;}
+#semscan-app .ss-ribbon-head{display:flex; align-items:baseline; gap:10px; margin-bottom:8px; flex-wrap:wrap;}
+#semscan-app .ss-ribbon-title{font-family:var(--ss-display); font-weight:700; font-size:13px;}
+#semscan-app .ss-ribbon-meta{font-family:var(--ss-mono); font-size:11px; color:var(--ss-muted);}
+#semscan-app .ss-ribbon{display:grid; grid-template-columns:repeat(16,1fr); gap:4px;}
+#semscan-app .ss-week{position:relative; border:1px solid var(--ss-border); background:var(--ss-bg); border-radius:7px; padding:5px 2px 6px; text-align:center; min-height:44px; transition:transform .12s ease, border-color .12s;}
+#semscan-app .ss-week:hover{transform:translateY(-2px); border-color:var(--ss-muted);}
+#semscan-app .ss-week .ss-wk{display:block; font-family:var(--ss-mono); font-size:10px; color:var(--ss-muted); letter-spacing:.3px;}
+#semscan-app .ss-week .ss-dots{display:flex; justify-content:center; gap:3px; margin-top:5px; min-height:7px; flex-wrap:wrap;}
+#semscan-app .ss-week .ss-dot{width:6px; height:6px; border-radius:50%;}
+#semscan-app .ss-week.ss-exam{background:repeating-linear-gradient(-45deg,#F3E9E9 0 4px,#FBF5F5 4px 8px); border-color:#E4CFCF;}
+#semscan-app .ss-week.ss-exam .ss-wk{color:var(--ss-danger);}
+#semscan-app .ss-week.ss-now{border-color:var(--ss-ink); box-shadow:0 1px 0 var(--ss-ink);}
+#semscan-app .ss-week.ss-now::before{content:""; position:absolute; left:8%; right:8%; top:44%; height:9px; background:var(--ss-highlight); opacity:.85; transform:rotate(-1.2deg); border-radius:2px; z-index:0;}
+#semscan-app .ss-week.ss-now .ss-wk{position:relative; z-index:1; color:var(--ss-ink); font-weight:700;}
+#semscan-app .ss-week.ss-past{opacity:.55;}
+#semscan-app .ss-ribbon-legend{display:flex; gap:14px; margin-top:8px; font-size:11px; color:var(--ss-muted); flex-wrap:wrap;}
+#semscan-app .ss-legend-item{display:inline-flex; align-items:center; gap:5px;}
+#semscan-app .ss-swatch{width:10px; height:10px; border-radius:3px; display:inline-block;}
+#semscan-app .ss-grid-2{display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start;}
+#semscan-app .ss-due-list{display:flex; flex-direction:column; gap:8px;}
+#semscan-app .ss-due{display:flex; align-items:center; gap:12px; border:1px solid var(--ss-border); border-radius:10px; padding:10px 12px; background:var(--ss-surface); transition:border-color .12s;}
+#semscan-app .ss-due:hover{border-color:var(--ss-muted);}
+#semscan-app .ss-due.ss-overdue{background:var(--ss-danger-soft); border-color:#EBCACA;}
+#semscan-app .ss-due.ss-soon{position:relative;}
+#semscan-app .ss-due.ss-soon .ss-due-title{background:linear-gradient(transparent 55%, var(--ss-highlight) 55% 92%, transparent 92%); padding:0 2px;}
+#semscan-app .ss-due.ss-done{opacity:.6;}
+#semscan-app .ss-due.ss-done .ss-due-title{text-decoration:line-through;}
+#semscan-app .ss-course-tab{flex:none; width:5px; align-self:stretch; border-radius:3px;}
+#semscan-app .ss-due-body{flex:1; min-width:0;}
+#semscan-app .ss-due-title{font-weight:600; font-size:14px;}
+#semscan-app .ss-due-meta{font-size:12px; color:var(--ss-muted); display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+#semscan-app .ss-code{font-family:var(--ss-mono); font-size:11px; letter-spacing:.4px;}
+#semscan-app .ss-type{font-size:10px; font-family:var(--ss-mono); border:1px solid var(--ss-border); border-radius:4px; padding:0 5px; color:var(--ss-muted); background:var(--ss-bg);}
+#semscan-app .ss-type.ss-t-exam{color:var(--ss-danger); border-color:#E4CFCF; background:#FBF3F3;}
+#semscan-app .ss-due-right{flex:none; text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:5px;}
+#semscan-app .ss-countdown{font-family:var(--ss-mono); font-size:12px; font-weight:600;}
+#semscan-app .ss-countdown.ss-c-danger{color:var(--ss-danger);}
+#semscan-app .ss-countdown.ss-c-warn{color:var(--ss-warn);}
+#semscan-app .ss-countdown.ss-c-ok{color:var(--ss-muted); font-weight:500;}
+#semscan-app .ss-check{width:22px; height:22px; border-radius:6px; border:1.5px solid var(--ss-border); background:#fff; display:inline-flex; align-items:center; justify-content:center; color:transparent; font-size:13px; transition:all .12s;}
+#semscan-app .ss-check:hover{border-color:var(--ss-primary);}
+#semscan-app .ss-check[aria-pressed="true"]{background:var(--ss-primary); border-color:var(--ss-primary); color:#fff;}
+#semscan-app .ss-progress-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px dashed var(--ss-border);}
+#semscan-app .ss-progress-row:last-child{border-bottom:none;}
+#semscan-app .ss-progress-name{flex:1; min-width:0; font-size:13px; font-weight:600;}
+#semscan-app .ss-bar{flex:none; width:110px; height:7px; background:var(--ss-bg); border:1px solid var(--ss-border); border-radius:999px; overflow:hidden;}
+#semscan-app .ss-bar i{display:block; height:100%; border-radius:999px; transition:width .3s ease;}
+#semscan-app .ss-pct{flex:none; font-family:var(--ss-mono); font-size:11px; color:var(--ss-muted); width:64px; text-align:right;}
+</style>
+<div class="ss-header">
+  <div class="ss-brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="3" width="24" height="22" rx="5" fill="#0E7A5F"/><rect x="1" y="3" width="24" height="7" rx="3.5" fill="#17242B"/><rect x="6" y="1" width="3" height="6" rx="1.5" fill="#17242B"/><rect x="17" y="1" width="3" height="6" rx="1.5" fill="#17242B"/><rect x="5" y="14" width="12" height="4" rx="1" fill="#FFD84D" transform="rotate(-2 11 16)"/><circle cx="19.5" cy="19.5" r="2" fill="#fff"/></svg>
+    SemScan <small>SEMESTER SCANNER</small>
+  </div>
+  <span class="ss-today ss-mono" id="ss-today-label"></span>
+  <span class="ss-demo-badge">DEMO · 虛構示範數據</span>
+</div>
+<div class="ss-ribbon-wrap">
+  <div class="ss-ribbon-head">
+    <span class="ss-ribbon-title">2026–27 上學期</span>
+    <span class="ss-ribbon-meta" id="ss-ribbon-meta"></span>
+  </div>
+  <div class="ss-ribbon" id="ss-ribbon" role="group" aria-label="學期週次 ribbon，點選跳至日曆"></div>
+  <div class="ss-ribbon-legend" id="ss-ribbon-legend"></div>
+</div>
+<div class="ss-layout">
+  <nav class="ss-rail" aria-label="主導覽">
+    <button type="button" class="ss-nav-btn" data-view="overview" aria-current="page">總覽 <span class="ss-count" id="ss-nav-due-count"></span></button>
+    <button type="button" class="ss-nav-btn" data-view="calendar">學期日曆</button>
+    <button type="button" class="ss-nav-btn" data-view="courses">課程進度</button>
+    <button type="button" class="ss-nav-btn" data-view="sync">Moodle 同步 <span class="ss-count" id="ss-nav-sync-count"></span></button>
+    <div class="ss-rail-foot">Extension 已連接<br><span class="ss-mono">moodle.university.edu</span><br>上次同步：<span id="ss-last-sync" class="ss-mono">—</span></div>
+  </nav>
+  <main class="ss-main">
+    <section class="ss-view ss-active" id="ss-view-overview" aria-label="總覽">
+      <div class="ss-view-head"><h2 class="ss-view-title">本週與即將到期</h2><span class="ss-view-sub" id="ss-overview-sub"></span></div>
+      <div class="ss-grid-2">
+        <div class="ss-card"><h3>Deadline 隊列 <span class="ss-mono" id="ss-due-scope"></span></h3><div class="ss-due-list" id="ss-due-list"></div></div>
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="ss-card"><h3>學期完成度 <span class="ss-mono">已完成 / 全部事件</span></h3><div id="ss-progress-list"></div></div>
+          <div class="ss-card"><h3>待確認抽取 <span class="ss-mono">AI → 人工</span></h3><div id="ss-review-peek"></div></div>
+        </div>
+      </div>
+    </section><style>
+#semscan-app .ss-cal-toolbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+#semscan-app .ss-cal-title{font-family:var(--ss-display); font-weight:800; font-size:18px; min-width:130px;}
+#semscan-app .ss-btn{border:1px solid var(--ss-border); background:var(--ss-surface); color:var(--ss-ink); border-radius:8px; padding:6px 12px; font-size:13px; font-weight:600; transition:all .12s;}
+#semscan-app .ss-btn:hover{border-color:var(--ss-muted);}
+#semscan-app .ss-btn.ss-primary{background:var(--ss-primary); border-color:var(--ss-primary); color:#fff;}
+#semscan-app .ss-btn.ss-primary:hover{background:#0B6B53;}
+#semscan-app .ss-btn.ss-ghost-danger{color:var(--ss-danger); border-color:#EBCACA;}
+#semscan-app .ss-btn[disabled]{opacity:.45; cursor:not-allowed;}
+#semscan-app .ss-chip{border:1px solid var(--ss-border); background:var(--ss-surface); border-radius:999px; padding:3px 11px; font-size:12px; font-weight:600; color:var(--ss-muted); display:inline-flex; align-items:center; gap:6px;}
+#semscan-app .ss-chip[aria-pressed="true"]{color:var(--ss-ink); border-color:var(--ss-ink); background:#fff;}
+#semscan-app .ss-chip .ss-swatch{width:8px; height:8px; border-radius:50%;}
+#semscan-app .ss-cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+#semscan-app .ss-cal-dow{font-family:var(--ss-mono); font-size:11px; color:var(--ss-muted); text-align:center; padding:4px 0; letter-spacing:.5px;}
+#semscan-app .ss-cal-cell{background:var(--ss-surface); border:1px solid var(--ss-border); border-radius:9px; min-height:86px; padding:6px; display:flex; flex-direction:column; gap:4px; position:relative;}
+#semscan-app .ss-cal-cell.ss-out{background:transparent; border-style:dashed; opacity:.5;}
+#semscan-app .ss-cal-cell.ss-today{border-color:var(--ss-ink); box-shadow:inset 0 0 0 1px var(--ss-ink);}
+#semscan-app .ss-cal-cell.ss-today .ss-cal-num{background:var(--ss-highlight); border-radius:4px; padding:0 4px; font-weight:700;}
+#semscan-app .ss-cal-num{font-family:var(--ss-mono); font-size:11px; color:var(--ss-muted); align-self:flex-start;}
+#semscan-app .ss-cal-ev{border:none; text-align:left; font-size:11px; line-height:1.3; border-radius:5px; padding:3px 6px; color:#fff; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:transform .1s;}
+#semscan-app .ss-cal-ev:hover{transform:scale(1.03);}
+#semscan-app .ss-cal-ev.ss-ev-done{opacity:.5; text-decoration:line-through;}
+#semscan-app .ss-cal-ev.ss-ev-exam{background-image:repeating-linear-gradient(-45deg,rgba(255,255,255,.18) 0 4px,transparent 4px 8px);}
+#semscan-app .ss-cal-more{font-size:10px; color:var(--ss-muted); font-family:var(--ss-mono);}
+#semscan-app .ss-cal-empty{margin-top:12px; border:1px dashed var(--ss-border); border-radius:10px; padding:14px; font-size:13px; color:var(--ss-muted); display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+#semscan-app .ss-course-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px;}
+#semscan-app .ss-course-card{background:var(--ss-surface); border:1px solid var(--ss-border); border-radius:12px; overflow:hidden;}
+#semscan-app .ss-course-top{padding:12px 14px; color:#fff; display:flex; align-items:baseline; gap:8px;}
+#semscan-app .ss-course-top .ss-code{font-size:12px; opacity:.9;}
+#semscan-app .ss-course-top b{font-family:var(--ss-display); font-size:15px;}
+#semscan-app .ss-course-body{padding:12px 14px;}
+#semscan-app .ss-course-stat{display:flex; justify-content:space-between; font-size:12px; color:var(--ss-muted); margin-bottom:8px;}
+#semscan-app .ss-course-next{font-size:12px; border-top:1px dashed var(--ss-border); padding-top:8px; margin-top:8px;}
+#semscan-app .ss-sync-grid{display:grid; grid-template-columns:300px 1fr; gap:16px; align-items:start;}
+#semscan-app .ss-ext{background:#20242B; color:#E8ECEF; border-radius:14px; padding:14px; box-shadow:0 8px 24px rgba(23,36,43,.25);}
+#semscan-app .ss-ext-head{display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; margin-bottom:4px;}
+#semscan-app .ss-ext-url{font-family:var(--ss-mono); font-size:10px; color:#9AA7B0; background:#171B21; border-radius:6px; padding:5px 8px; margin:8px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+#semscan-app .ss-ext-status{font-size:11px; color:#9AA7B0; margin-bottom:10px; display:flex; align-items:center; gap:6px;}
+#semscan-app .ss-ext-status .ss-live{width:7px; height:7px; border-radius:50%; background:#39C08E; flex:none;}
+#semscan-app .ss-ext-file{display:flex; align-items:center; gap:8px; font-size:11px; padding:6px 8px; border-radius:7px; background:#2A2F37; margin-bottom:5px;}
+#semscan-app .ss-ext-file .ss-fname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--ss-mono); font-size:10px;}
+#semscan-app .ss-ext-file .ss-fstate{flex:none; font-family:var(--ss-mono); font-size:9px; color:#9AA7B0;}
+#semscan-app .ss-ext-file.ss-found .ss-fstate{color:#FFD84D;}
+#semscan-app .ss-ext-file.ss-sent .ss-fstate{color:#39C08E;}
+#semscan-app .ss-ext-btn{width:100%; border:none; border-radius:8px; padding:9px; font-weight:700; font-size:13px; background:#FFD84D; color:#17242B; margin-top:8px; transition:filter .12s;}
+#semscan-app .ss-ext-btn:hover{filter:brightness(1.06);}
+#semscan-app .ss-ext-btn[disabled]{opacity:.5; cursor:not-allowed;}
+#semscan-app .ss-ext-note{font-size:10px; color:#9AA7B0; margin-top:8px; line-height:1.5;}
+#semscan-app .ss-pipe{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;}
+#semscan-app .ss-pipe-step{flex:1; min-width:100px; border:1px solid var(--ss-border); background:var(--ss-surface); border-radius:9px; padding:8px 10px; font-size:11px; color:var(--ss-muted); position:relative;}
+#semscan-app .ss-pipe-step b{display:block; font-size:12px; color:var(--ss-ink); font-family:var(--ss-display);}
+#semscan-app .ss-pipe-step.ss-on{border-color:var(--ss-primary); background:var(--ss-primary-soft);}
+#semscan-app .ss-pipe-step.ss-on b{color:var(--ss-primary);}
+#semscan-app .ss-review-item{border:1px solid var(--ss-border); border-radius:10px; padding:12px; margin-bottom:10px; background:var(--ss-surface);}
+#semscan-app .ss-review-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+#semscan-app .ss-review-src{font-family:var(--ss-mono); font-size:10px; color:var(--ss-muted); width:100%;}
+#semscan-app .ss-conf{font-family:var(--ss-mono); font-size:10px; border-radius:4px; padding:1px 6px;}
+#semscan-app .ss-conf-hi{background:var(--ss-primary-soft); color:var(--ss-primary);}
+#semscan-app .ss-conf-lo{background:var(--ss-warn-soft); color:var(--ss-warn);}
+#semscan-app .ss-review-fields{display:grid; grid-template-columns:1fr 150px 110px; gap:8px; margin-bottom:8px;}
+#semscan-app .ss-field label{display:block; font-size:10px; font-family:var(--ss-mono); color:var(--ss-muted); margin-bottom:3px; letter-spacing:.4px;}
+#semscan-app .ss-field input,#semscan-app .ss-field select{width:100%; border:1px solid var(--ss-border); border-radius:7px; padding:6px 8px; font-size:13px; font-family:inherit; background:#fff; color:var(--ss-ink);}
+#semscan-app .ss-field input:focus,#semscan-app .ss-field select:focus{outline:2px solid var(--ss-primary); outline-offset:1px;}
+#semscan-app .ss-field .ss-err{font-size:11px; color:var(--ss-danger); margin-top:3px; display:none;}
+#semscan-app .ss-field.ss-invalid input{border-color:var(--ss-danger);}
+#semscan-app .ss-field.ss-invalid .ss-err{display:block;}
+#semscan-app .ss-review-actions{display:flex; gap:8px; align-items:center;}
+#semscan-app .ss-quote{font-size:12px; color:var(--ss-muted); border-left:3px solid var(--ss-highlight); padding:2px 0 2px 10px; margin:0 0 8px; font-style:italic;}
+#semscan-app .ss-empty{border:1px dashed var(--ss-border); border-radius:10px; padding:18px; text-align:center; color:var(--ss-muted); font-size:13px;}
+#semscan-app .ss-toast{position:absolute; left:50%; bottom:18px; transform:translateX(-50%) translateY(8px); background:var(--ss-ink); color:#fff; font-size:13px; border-radius:9px; padding:9px 16px; opacity:0; pointer-events:none; transition:all .2s ease; z-index:50; max-width:90%;}
+#semscan-app .ss-toast.ss-show{opacity:1; transform:translateX(-50%);}
+#semscan-app .ss-dialog-back{position:absolute; inset:0; background:rgba(23,36,43,.4); display:none; align-items:center; justify-content:center; z-index:40; padding:20px;}
+#semscan-app .ss-dialog-back.ss-open{display:flex;}
+#semscan-app .ss-dialog{background:#fff; border-radius:12px; max-width:420px; width:100%; padding:18px; box-shadow:0 16px 40px rgba(23,36,43,.3);}
+#semscan-app .ss-dialog h4{margin:0 0 8px; font-family:var(--ss-display); font-size:16px;}
+#semscan-app .ss-dialog-meta{font-size:13px; color:var(--ss-muted); display:flex; flex-direction:column; gap:5px; margin-bottom:14px;}
+#semscan-app .ss-dialog-actions{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;}
+@media (max-width:900px){
+  #semscan-app .ss-grid-2,#semscan-app .ss-sync-grid{grid-template-columns:1fr;}
+  #semscan-app .ss-layout{flex-direction:column;}
+  #semscan-app .ss-rail{width:100%; flex-direction:row; border-right:none; border-bottom:1px solid var(--ss-border); overflow-x:auto; padding:8px;}
+  #semscan-app .ss-nav-btn{width:auto; white-space:nowrap;}
+  #semscan-app .ss-rail-foot{display:none;}
+  #semscan-app .ss-ribbon{grid-template-columns:repeat(8,1fr);}
+  #semscan-app .ss-review-fields{grid-template-columns:1fr;}
+  #semscan-app .ss-cal-cell{min-height:64px;}
+}
+@media (prefers-reduced-motion:reduce){
+  #semscan-app *,#semscan-app *::before,#semscan-app *::after{animation:none!important; transition:none!important;}
+}
+</style>
+    <section class="ss-view" id="ss-view-calendar" aria-label="學期日曆">
+      <div class="ss-view-head"><h2 class="ss-view-title">學期日曆</h2><span class="ss-view-sub">事件來自 Moodle 同步與手動新增，點選事件可查看與標記完成</span></div>
+      <div class="ss-cal-toolbar">
+        <button type="button" class="ss-btn" id="ss-cal-prev" aria-label="上一個月">←</button>
+        <span class="ss-cal-title" id="ss-cal-title"></span>
+        <button type="button" class="ss-btn" id="ss-cal-next" aria-label="下一個月">→</button>
+        <button type="button" class="ss-btn" id="ss-cal-today-btn">回到今天</button>
+        <span style="flex:1"></span>
+        <span id="ss-cal-filters" role="group" aria-label="課程篩選"></span>
+      </div>
+      <div class="ss-cal-grid" id="ss-cal-dow"></div>
+      <div class="ss-cal-grid" id="ss-cal-grid" style="margin-top:5px;"></div>
+      <div class="ss-cal-empty" id="ss-cal-empty" hidden>這個月沒有符合篩選的事件。<button type="button" class="ss-btn" id="ss-cal-clear">清除課程篩選</button></div>
+    </section>
+    <section class="ss-view" id="ss-view-courses" aria-label="課程進度">
+      <div class="ss-view-head"><h2 class="ss-view-title">課程進度</h2><span class="ss-view-sub">完成度 = 已完成事件 / 該課程全部事件（含考試）</span></div>
+      <div class="ss-course-grid" id="ss-course-grid"></div>
+    </section>    <section class="ss-view" id="ss-view-sync" aria-label="Moodle 同步">
+      <div class="ss-view-head"><h2 class="ss-view-title">Moodle 同步</h2><span class="ss-view-sub">Extension 在你的登入態下抓取課程 PDF，伺服器解析後由你確認入曆</span></div>
+      <div class="ss-pipe" id="ss-pipe">
+        <div class="ss-pipe-step" data-step="scrape"><b>1 抓取</b>Extension 掃描 Moodle 課程頁</div>
+        <div class="ss-pipe-step" data-step="parse"><b>2 解析</b>PDF 轉文字與版面</div>
+        <div class="ss-pipe-step" data-step="extract"><b>3 抽取</b>LLM 歸納 deadline／考試</div>
+        <div class="ss-pipe-step" data-step="confirm"><b>4 確認</b>人工核對後寫入日曆</div>
+      </div>
+      <div class="ss-sync-grid">
+        <div class="ss-ext" aria-label="瀏覽器 Extension popup 模擬">
+          <div class="ss-ext-head"><svg width="16" height="16" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="3" width="24" height="22" rx="5" fill="#0E7A5F"/><rect x="5" y="14" width="12" height="4" rx="1" fill="#FFD84D"/></svg>SemScan Connector</div>
+          <div class="ss-ext-url">https://moodle.university.edu/course/view.php?id=…</div>
+          <div class="ss-ext-status"><span class="ss-live"></span><span id="ss-ext-status-text">已連接 · 偵測到 4 個課程頁</span></div>
+          <div id="ss-ext-files"></div>
+          <button type="button" class="ss-ext-btn" id="ss-ext-scan">掃描課程頁 PDF</button>
+          <button type="button" class="ss-ext-btn" id="ss-ext-send" disabled style="background:#39C08E;">同步到 SemScan</button>
+          <div class="ss-ext-note">僅抓取你已登入課程的檔案；不會上傳帳號密碼。此處為原型模擬，未連接真實 Moodle。</div>
+        </div>
+        <div>
+          <div class="ss-card" style="margin-bottom:14px;">
+            <h3>待確認抽取結果 <span class="ss-mono" id="ss-review-count"></span></h3>
+            <div id="ss-review-list"></div>
+          </div>
+          <div class="ss-card">
+            <h3>手動上傳（fallback）</h3>
+            <p class="ss-muted" style="font-size:13px; margin:0 0 10px;">Moodle 以外的 syllabus（電郵附件、紙本掃描）可手動加入，走同一條解析→確認流程。</p>
+            <button type="button" class="ss-btn" id="ss-manual-add">模擬上傳 syllabus.pdf</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="ss-dialog-back" id="ss-dialog-back">
+  <div class="ss-dialog" role="dialog" aria-modal="true" aria-labelledby="ss-dialog-title">
+    <h4 id="ss-dialog-title"></h4>
+    <div class="ss-dialog-meta" id="ss-dialog-meta"></div>
+    <div class="ss-dialog-actions" id="ss-dialog-actions"></div>
+  </div>
+</div>
+<div class="ss-toast" id="ss-toast" role="status" aria-live="polite"></div>
+</div>
+<script>
+(function(){
+"use strict";
+var root=document.getElementById('semscan-app');
+function $(id){return root.querySelector('#'+id);}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+/* ---- demo clock: fixed fictional semester ---- */
+var TODAY=new Date(2026,10,17); /* 2026-11-17, week 11 */
+var SEM_START=new Date(2026,8,7); /* W1 Monday 2026-09-07 */
+var SEM_WEEKS=16;
+var COURSES=[
+ {id:'cs310',code:'CS310',name:'數據結構',color:'#2B59C3'},
+ {id:'econ201',code:'ECON201',name:'個體經濟學',color:'#C77E1F'},
+ {id:'psy101',code:'PSY101',name:'心理學導論',color:'#7A4E9E'},
+ {id:'stat220',code:'STAT220',name:'統計推論',color:'#0E7A5F'}
+];
+var CMAP={}; COURSES.forEach(function(c){CMAP[c.id]=c;});
+var TYPE_LABEL={assignment:'作業',quiz:'小測',exam:'考試',project:'專題'};
+var events=[
+ {id:'e1',course:'cs310',type:'assignment',title:'Assignment 3 — Balanced BST',date:'2026-11-06',time:'23:59',done:true,src:'moodle'},
+ {id:'e2',course:'econ201',type:'quiz',title:'Quiz 2（個體經濟）',date:'2026-11-10',time:'10:00',done:true,src:'moodle'},
+ {id:'e3',course:'psy101',type:'assignment',title:'Reflection Essay 2',date:'2026-11-13',time:'23:59',done:false,src:'moodle'},
+ {id:'e4',course:'cs310',type:'assignment',title:'Assignment 4 — Graph Algorithms',date:'2026-11-20',time:'23:59',done:false,src:'moodle'},
+ {id:'e5',course:'stat220',type:'quiz',title:'Quiz 3（假設檢定）',date:'2026-11-19',time:'14:00',done:false,src:'moodle'},
+ {id:'e6',course:'econ201',type:'assignment',title:'Problem Set 4',date:'2026-11-24',time:'17:00',done:false,src:'moodle'},
+ {id:'e7',course:'psy101',type:'project',title:'Group Project 提案',date:'2026-11-27',time:'23:59',done:false,src:'manual'},
+ {id:'e8',course:'cs310',type:'exam',title:'Midterm 2',date:'2026-12-03',time:'09:00',done:false,src:'moodle'},
+ {id:'e9',course:'stat220',type:'assignment',title:'Assignment 5 — Regression',date:'2026-12-08',time:'23:59',done:false,src:'moodle'},
+ {id:'e10',course:'econ201',type:'exam',title:'Final Exam',date:'2026-12-15',time:'09:00',done:false,src:'moodle'},
+ {id:'e11',course:'cs310',type:'exam',title:'Final Exam',date:'2026-12-17',time:'14:00',done:false,src:'moodle'},
+ {id:'e12',course:'psy101',type:'exam',title:'Final Exam',date:'2026-12-18',time:'09:00',done:false,src:'moodle'},
+ {id:'e13',course:'stat220',type:'exam',title:'Final Exam',date:'2026-12-21',time:'09:00',done:false,src:'moodle'}
+];
+var reviewQueue=[
+ {id:'r1',course:'cs310',type:'assignment',title:'Assignment 5 — Hashing',date:'2026-12-11',time:'23:59',conf:0.93,src:'CS310_Lecture12.pdf · p.3',quote:'「Assignment 5 will be due on 11 December, 23:59。」'},
+ {id:'r2',course:'econ201',type:'quiz',title:'Quiz 3（賽局理論）',date:'2026-12-01',time:'10:00',conf:0.61,src:'ECON201_Week12.pdf · p.1',quote:'「Quiz 3 預計於十二月初舉行，確實日期容後公佈。」（日期為推測）'}
+];
+var extFiles=[
+ {name:'CS310_Lecture12.pdf',course:'cs310',state:'idle'},
+ {name:'ECON201_Week12.pdf',course:'econ201',state:'idle'},
+ {name:'PSY101_Tutorial9.pdf',course:'psy101',state:'idle'},
+ {name:'STAT220_Lecture11.pdf',course:'stat220',state:'idle'}
+];
+var extPhase='idle'; /* idle -> scanned -> sent */
+var lastSync=null;
+var state={view:'overview',calY:2026,calM:10,filter:{},seq:100};
+function d(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function fmt(s){var dt=d(s);return (dt.getMonth()+1)+'/'+dt.getDate();}
+function daysDiff(s){return Math.round((d(s)-TODAY)/86400000);}
+function weekOf(s){var dt=d(s);var idx=Math.floor((dt-SEM_START)/(7*86400000))+1;return idx;}
+function toast(msg){var t=$('ss-toast');t.textContent=msg;t.classList.add('ss-show');clearTimeout(toast._h);toast._h=setTimeout(function(){t.classList.remove('ss-show');},2600);}/* ---- 草稿狀態說明（2026-11-17）----
+   本草稿（SemScan：Moodle Extension 同步＋螢光筆視覺方向）已因使用者方向調整而被取代：
+   MVP 改為 Notion 風、聚焦 Assignment 與 Group Project 進度，輕量先落地。
+   現行交付為 semtrack-prototype.html；此檔僅保留為歷史草稿，未發布、互動未完成、不再維護。 */
+var archiveNote=document.createElement('div');
+archiveNote.setAttribute('style','position:sticky;top:0;z-index:60;background:#FBF3DB;color:#8A6D1F;border-bottom:1px solid #EAD9B4;padding:8px 16px;font-size:12px;line-height:1.5;');
+archiveNote.textContent='歷史草稿存檔：本設計已被 semtrack-prototype.html（Notion 風 MVP：Assignment＋Group Project）取代；此頁互動未完成，僅供方向演進記錄。';
+root.insertBefore(archiveNote,root.firstChild);
+})();
+</script>
